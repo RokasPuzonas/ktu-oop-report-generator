@@ -57,8 +57,12 @@ class PDFReport(FPDF):
 
         self.add_font("times-new-roman", "", "fonts/times-new-roman.ttf", True)
         self.add_font("times-new-roman", "B", "fonts/times-new-roman-bold.ttf", True)
+        self.add_font("arial", "", "fonts/arial.ttf", True)
+        self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
 
         self.add_title_page()
+        for section in report.sections:
+            self.add_section(section)
 
     def add_title_page(self) -> None:
         self.add_page()
@@ -124,6 +128,16 @@ class PDFReport(FPDF):
         self.set_font("times-new-roman", "B", 12)
         self.set_y(-self.font_size*2-self.b_margin)
         self.cell(0, txt=f"{self.report.city_name} {self.report.year}", align="C")
+
+    def add_section(self, section: ReportSection) -> None:
+        self.add_page()
+        self.set_font("arial", "B", 14)
+        self.cell(0, txt=section.title, align="C", ln=True)
+        self.start_section(section.title)
+        self.start_section("Darbo užduotis", 1)
+        self.start_section("Programos tekstas", 1)
+        self.start_section("Pradiniai duomenys ir rezultatai", 1)
+        self.start_section("Dėstytojo pastabos", 1)
 
     def add_page_number(self) -> None:
         self.set_font("times-new-roman", "", 12)
