@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from fpdf import FPDF
+from PIL import Image
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional
@@ -46,15 +47,133 @@ class Report:
         return f"Report[{self.student_name}, {self.title}]"
 
 class PDFReport(FPDF):
+    university_icon = "university-icon.png"
+    line_spacing: float = 1.15
     report: Report
 
     def __init__(self, report: Report) -> None:
         super().__init__("portrait", "cm", "A4")
         self.report = report
 
+        self.add_font("times-new-roman", "", "fonts/times-new-roman.ttf", True)
+        self.add_font("times-new-roman", "B", "fonts/times-new-roman-bold.ttf", True)
+
+        self.add_title_page()
+
+    def add_title_page(self) -> None:
         self.add_page()
-        self.set_font("times")
-        self.cell(4, 1, "Hello, World!")
+
+        # Top part
+        self.set_y(self.t_margin + 0.5 + 12/self.k)
+        self.center_image(self.university_icon, 1.78, 2.04)
+
+        self.set_font("times-new-roman", "B", 12)
+        self.cell(0, self.font_size*1.5, txt=self.report.university_name, align="C", ln=True)
+
+        self.set_font("times-new-roman", "", 12)
+        self.cell(0, txt=self.report.faculty_name, align="C", ln=True)
+
+        # Middle part (title)
+        self.ln(self.font_size*15)
+
+        self.set_font("times-new-roman", "B", 18)
+        self.cell(0, txt=self.report.title, align="C", ln=True)
+        
+        self.set_font("times-new-roman", "", 14)
+        self.cell(0, txt=self.report.sub_title, align="C", ln=True)
+
+        # Student name and professort name section
+        self.ln(self.font_size*4)
+
+        w = self.get_page_width()
+
+        y = self.get_y()
+        self.set_draw_color(212, 175, 55)
+        self.line(w/2, y, w-self.r_margin, y)
+        self.ln(self.font_size*2)
+
+        self.set_font("times-new-roman", "B", 12)
+        self.cell(x=w/2, w=w/2, txt=self.report.student_name, align="L", ln=True)
+        self.ln(self.font_size)
+
+        self.set_font("times-new-roman", "", 12)
+        if self.report.student_gender == Gender.MALE:
+            self.cell(x=w/2, w=w/2, txt="Studentas", align="L", ln=True)
+        else:
+            self.cell(x=w/2, w=w/2, txt="Studentė", align="L", ln=True)
+
+        self.ln(self.font_size*3)
+
+        self.set_font("times-new-roman", "B", 12)
+        self.cell(x=w/2, w=w/2, txt=self.report.professor_name, align="L", ln=True)
+        self.ln(self.font_size)
+
+        self.set_font("times-new-roman", "", 12)
+        if self.report.professor_gender == Gender.MALE:
+            self.cell(x=w/2, w=w/2, txt="Dėstytojas", align="L", ln=True)
+        else:
+            self.cell(x=w/2, w=w/2, txt="Dėstytoja", align="L", ln=True)
+        self.ln(self.font_size)
+
+        y = self.get_y() + self.font_size
+        self.set_draw_color(212, 175, 55)
+        self.line(w/2, y, w-self.r_margin, y)
+        self.ln(self.font_size * self.line_spacing + 3.5)
+
+        # Footer
+        self.set_font("times-new-roman", "B", 12)
+        self.set_y(-self.font_size*2-self.b_margin)
+        self.cell(0, txt=f"{self.report.city_name} {self.report.year}", align="C")
+
+    def add_page_number(self) -> None:
+        self.set_font("times-new-roman", "", 12)
+        self.set_y(-self.font_size*2-self.b_margin)
+        self.cell(0, txt=str(self.page_no()), align="R")
+
+    def footer(self) -> None:
+        if self.page_no() > 1:
+            self.add_page_number()
+
+    def center_image(self, filename: str, w: float = 0, h: float = 0) -> None:
+        if w == 0:
+            im = Image.open(filename)
+            w = im.size[0]
+
+        self.image(
+            filename,
+            w = w,
+            h = h,
+            x = self.l_margin + (self.get_page_width() - self.l_margin - self.r_margin - w)/2
+        )
+
+    def get_page_width(self) -> float:
+        return self.dw_pt/self.k
+
+    def get_page_height(self) -> float:
+        return self.dh_pt/self.k
+
+    def get_page_size(self) -> tuple[float, float]:
+        return self.get_page_width(), self.get_page_height()
+
+    def set_line_spacing(self, line_spacing: float) -> None:
+        self.line_spacing = line_spacing
+
+    def get_line_spacing(self) -> float:
+        return self.line_spacing
+
+    def cell(self, w:float=None, h:float=None, x:float=None, y:float=None, *args, **kwargs) -> None:
+        if h is None:
+            h = self.font_size * self.line_spacing
+
+        if x and y:
+            self.set_xy(x, y)
+        elif x:
+            self.set_x(x)
+        elif y:
+            self.set_y(y)
+
+        super().cell(w, h, *args, **kwargs)
+
 
 def from_dict_to_dataclass(cls, data):
     return cls(
