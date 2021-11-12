@@ -3,6 +3,8 @@ from fpdf import FPDF
 from PIL import Image
 from enum import Enum
 from dataclasses import dataclass, field
+from fpdf.fpdf import ToCPlaceholder
+from fpdf.outline import OutlineSection
 from typing import Optional
 import inspect
 import click
@@ -60,7 +62,11 @@ class PDFReport(FPDF):
         self.add_font("arial", "", "fonts/arial.ttf", True)
         self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
 
+        self.set_margins(2.5, 1, 1)
+        self.set_auto_page_break(True, 1.5)
+
         self.add_title_page()
+        self.add_toc_page()
         for section in report.sections:
             self.add_section(section)
 
@@ -139,6 +145,44 @@ class PDFReport(FPDF):
         self.start_section("Pradiniai duomenys ir rezultatai", 1)
         self.start_section("Dėstytojo pastabos", 1)
 
+    def add_toc_page(self):
+        self.insert_toc_placeholder(self.render_toc, 1)
+
+        # Adjust starting page, because it's a bug
+        # When the function creates a new placeholder page, it should start with
+        # it, not the one before it.
+        placeholder = self._toc_placeholder
+        self._toc_placeholder = ToCPlaceholder(
+            placeholder.render_function, placeholder.start_page+1, placeholder.y, placeholder.pages
+        )
+
+    @staticmethod
+    def render_toc(pdf: FPDF, outline: list[OutlineSection]) -> None:
+        pdf.set_y(pdf.t_margin + 0.5 + 12/pdf.k)
+        pdf.set_font("times-new-roman", "", 12)
+        pdf.cell(0, txt="TURINYS", align="C", ln=True)
+
+        counters = [1, 1]
+        for i in range(len(outline)):
+            section = outline[i]
+            level = int(section.level)
+            if level > 1: continue
+            if i > 0:
+                if outline[i-1].level == section.level:
+                    counters[level] += 1
+                elif outline[i-1].level < section.level:
+                    counters[level] = 1
+                elif outline[i-1].level > section.level:
+                    counters[level] += 1
+            if level > 0:
+                pdf.set_x(pdf.get_x()+1)
+            if level == 0:
+                pdf.set_font("times-new-roman", "B", 14)
+            else:
+                pdf.set_font("times-new-roman", "", 12)
+            level_label = "".join([f"{counters[j]}." for j in range(level+1)])
+            pdf.cell(txt=f'{level_label} {section.name} (page {section.page_number})', ln=1)
+
     def add_page_number(self) -> None:
         self.set_font("times-new-roman", "", 12)
         self.set_y(-self.font_size*2-self.b_margin)
@@ -187,7 +231,6 @@ class PDFReport(FPDF):
             self.set_y(y)
 
         super().cell(w, h, *args, **kwargs)
-
 
 def from_dict_to_dataclass(cls, data):
     return cls(
