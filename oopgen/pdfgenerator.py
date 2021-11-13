@@ -26,6 +26,8 @@ class PDFGenerator(PDF):
 
         self.add_font("times-new-roman", "", "fonts/times-new-roman.ttf", True)
         self.add_font("times-new-roman", "B", "fonts/times-new-roman-bold.ttf", True)
+        self.add_font("times-new-roman", "I", "fonts/times-new-roman-italic.ttf", True)
+        self.add_font("times-new-roman", "BI", "fonts/times-new-roman-bold-italic.ttf", True)
         self.add_font("arial", "", "fonts/arial.ttf", True)
         self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
 
@@ -116,11 +118,7 @@ class PDFGenerator(PDF):
         self.start_section(f"{index}. {section.title}")
         if section.problem:
             self.set_font("times-new-roman", "", 12)
-            # self.set_x(self.get_x() + 1)
-            # html = markdown(section.problem)
-            # html = "<font color='#000000' face='times-new-roman' size=12>" + html + "</font>"
-            # self.write_html(text=html)
-            self.write_markdown(section.problem)
+            self.write_basic_markdown(section.problem)
             self.ln()
         self.start_section(f"{index}.1. Darbo užduotis", 1)
         self.start_section(f"{index}.2. Programos tekstas", 1)

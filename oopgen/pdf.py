@@ -25,23 +25,42 @@ class PDF(FPDF):
             x = self.l_margin + (self.get_page_width() - self.l_margin - self.r_margin - w)/2
         )
 
-    def write_markdown(self, text: str):
-        text_sections: list[str] = []
-
+    # TODO: Create a more feature complete markdown writer
+    def write_basic_markdown(self, text: str):
+        paragraph: list[str] = []
         for ttype, value in self.markdown_lexer.get_tokens(text):
-            if ttype == Token.Text:
-                text_sections.append(value)
-            elif ttype == Token.Keyword:
-                if value == "*":
-                    text_sections.append('•')
-                else:
-                    text_sections.append(value)
-
-        self.multi_cell(0, txt="".join(text_sections))
+            if ttype == Token.Keyword and value == "*":
+                paragraph.append("•")
+                continue
+            paragraph.append(value)
+        self.multi_cell(0, txt="".join(paragraph))
+        # # Altenative that supports bolding and italics
+        # # but can't do justify align.
+        # for ttype, value in self.markdown_lexer.get_tokens(text):
+        #     if ttype == Token.Keyword and value == "*":
+        #         self.write(txt="•")
+        #         self.x = self.x + self.get_string_width("•")
+        #         continue
+        #     elif ttype == Token.Generic.Emph:
+        #         old_style = self.font_style
+        #         self.set_font(style="I")
+        #         self.write(txt=value[1:-1])
+        #         self.set_font(style=old_style)
+        #         continue
+        #     elif ttype == Token.Generic.Strong:
+        #         old_style = self.font_style
+        #         self.set_font(style="B")
+        #         self.write(txt=value[2:-2])
+        #         self.set_font(style=old_style)
+        #         continue
+        #     self.write(txt=value)
 
     def write_csharp(self, text: str):
         for ttype, value in self.csharp_lexer.get_tokens(text):
             pass
+
+    def render_text_sections(self, text_sections: list[TextSection]):
+        pass
 
     def get_page_width(self) -> float:
         return self.dw_pt/self.k
