@@ -1,19 +1,16 @@
 from math import ceil
-from fpdf import FPDF
 from dataclasses import dataclass
-from PIL import Image
 from fpdf.fpdf import TitleStyle, ToCPlaceholder
 from fpdf.outline import OutlineSection
-from markdown import markdown
 
 from .report import Report, ReportSection, Gender
-from .html import MyHTMLMixin
+from .pdf import PDF
 
 @dataclass
 class PDFGeneratorStyle:
     toc_max_level: int = 2
 
-class PDFGenerator(FPDF, MyHTMLMixin):
+class PDFGenerator(PDF):
     report: Report
     style: PDFGeneratorStyle
     university_icon = "university-icon.png"
@@ -119,9 +116,11 @@ class PDFGenerator(FPDF, MyHTMLMixin):
         self.start_section(f"{index}. {section.title}")
         if section.problem:
             self.set_font("times-new-roman", "", 12)
-            html = markdown(section.problem)
-            html = "<font color='#000000' face='times-new-roman' size=12>" + html + "</font>"
-            self.write_html(text=html)
+            # self.set_x(self.get_x() + 1)
+            # html = markdown(section.problem)
+            # html = "<font color='#000000' face='times-new-roman' size=12>" + html + "</font>"
+            # self.write_html(text=html)
+            self.write_markdown(section.problem)
             self.ln()
         self.start_section(f"{index}.1. Darbo užduotis", 1)
         self.start_section(f"{index}.2. Programos tekstas", 1)
@@ -149,7 +148,7 @@ class PDFGenerator(FPDF, MyHTMLMixin):
         )
 
     # TODO: render_toc could use some refactoring
-    def render_toc(self, pdf: FPDF, outline: list[OutlineSection]) -> None:
+    def render_toc(self, pdf: PDF, outline: list[OutlineSection]) -> None:
         page_top_y = pdf.t_margin + 0.5 + 12/pdf.k
         pdf.set_y(page_top_y)
         pdf.set_font("times-new-roman", "", 12)
@@ -188,7 +187,7 @@ class PDFGenerator(FPDF, MyHTMLMixin):
             y += pdf.font_size
             y += self.toc_section_spacing_below
 
-    def render_toc_section(self, pdf: FPDF, x: float, y: float, outlineSection: OutlineSection):
+    def render_toc_section(self, pdf: PDF, x: float, y: float, outlineSection: OutlineSection):
         pdf.text(x, y, f"{outlineSection.name} (page {outlineSection.page_number})")
 
     # Used for determining how many pages should be inserted in placeholder
@@ -217,43 +216,4 @@ class PDFGenerator(FPDF, MyHTMLMixin):
         if self.page_no() > 1:
             self.add_page_number()
 
-    def center_image(self, filename: str, w: float = 0, h: float = 0) -> None:
-        if w == 0:
-            im = Image.open(filename)
-            w = im.size[0]
-
-        self.image(
-            filename,
-            w = w,
-            h = h,
-            x = self.l_margin + (self.get_page_width() - self.l_margin - self.r_margin - w)/2
-        )
-
-    def get_page_width(self) -> float:
-        return self.dw_pt/self.k
-
-    def get_page_height(self) -> float:
-        return self.dh_pt/self.k
-
-    def get_page_size(self) -> tuple[float, float]:
-        return self.get_page_width(), self.get_page_height()
-
-    def set_line_spacing(self, line_spacing: float) -> None:
-        self.line_spacing = line_spacing
-
-    def get_line_spacing(self) -> float:
-        return self.line_spacing
-
-    def cell(self, w:float=None, h:float=None, *args, x:float=None, y:float=None,  **kwargs) -> None:
-        if h is None:
-            h = self.font_size * self.line_spacing
-
-        if x and y:
-            self.set_xy(x, y)
-        elif x:
-            self.set_x(x)
-        elif y:
-            self.set_y(y)
-
-        super().cell(w, h, *args, **kwargs)
 
