@@ -231,14 +231,6 @@ class PDFReport(FPDF):
 
         super().cell(w, h, *args, **kwargs)
 
-def from_dict_to_dataclass(cls, data):
-    return cls(
-        **{
-            key: (data[key] if val.default == val.empty else data.get(key, val.default))
-            for key, val in inspect.signature(cls).parameters.items()
-        }
-    )
-
 def read_report_from_toml(filename: str) -> Report:
     parsed_toml = toml.load(filename)
     return Report(**parsed_toml)
