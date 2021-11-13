@@ -5,7 +5,6 @@ from enum import Enum
 from fpdf.fpdf import ToCPlaceholder
 from fpdf.outline import OutlineSection
 from typing import Optional
-import inspect
 import click
 import sys
 from datetime import date
@@ -49,6 +48,7 @@ class Report(BaseModel):
 
 class PDFReport(FPDF):
     university_icon = "university-icon.png"
+    toc_max_level = 2
     line_spacing: float = 1.15
     report: Report
 
@@ -142,10 +142,12 @@ class PDFReport(FPDF):
         self.start_section("Darbo užduotis", 1)
         self.start_section("Programos tekstas", 1)
         self.start_section("Pradiniai duomenys ir rezultatai", 1)
+        self.start_section("1 Testas", 2)
+        self.start_section("2 Testas", 2)
         self.start_section("Dėstytojo pastabos", 1)
 
     def add_toc_page(self):
-        self.insert_toc_placeholder(self.render_toc, 1)
+        self.insert_toc_placeholder(self.render_toc, 2)
 
         # Adjust starting page, because it's a bug
         # When the function creates a new placeholder page, it should start with
@@ -155,32 +157,58 @@ class PDFReport(FPDF):
             placeholder.render_function, placeholder.start_page+1, placeholder.y, placeholder.pages
         )
 
-    @staticmethod
-    def render_toc(pdf: FPDF, outline: list[OutlineSection]) -> None:
+    # TODO: render_toc could use some refactoring
+    def render_toc(self, pdf: FPDF, outline: list[OutlineSection]) -> None:
         pdf.set_y(pdf.t_margin + 0.5 + 12/pdf.k)
         pdf.set_font("times-new-roman", "", 12)
         pdf.cell(0, txt="TURINYS", align="C", ln=True)
+        pdf.ln()
 
-        counters = [1, 1]
+        y = pdf.get_y()
+        section_numbers = [1, 1, 1, 1]
         for i in range(len(outline)):
-            section = outline[i]
-            level = int(section.level)
-            if level > 1: continue
+            outlineSection = outline[i]
+            level = int(outlineSection.level)
+
+            # Only render up to the specified number of levels levels
+            if level > self.toc_max_level: continue
+
+            # Reset number prefix if a continuos level has ended
             if i > 0:
-                if outline[i-1].level == section.level:
-                    counters[level] += 1
-                elif outline[i-1].level < section.level:
-                    counters[level] = 1
-                elif outline[i-1].level > section.level:
-                    counters[level] += 1
-            if level > 0:
-                pdf.set_x(pdf.get_x()+1)
+                if outline[i-1].level < outlineSection.level:
+                    section_numbers[level] = 1
+                else:
+                    section_numbers[level] += 1
+
+            # Update font
+            y += 0.21
             if level == 0:
                 pdf.set_font("times-new-roman", "B", 14)
             else:
                 pdf.set_font("times-new-roman", "", 12)
-            level_label = "".join([f"{counters[j]}." for j in range(level+1)])
-            pdf.cell(txt=f'{level_label} {section.name} (page {section.page_number})', ln=1)
+
+            x = pdf.l_margin
+
+            # Indent outline section
+            if level > 0:
+                x = x+1
+
+            # Do a manual page break
+            # TODO: find a better solution for this
+            if y + pdf.font_size > pdf.page_break_trigger:
+                pdf.page += 1
+                y = pdf.t_margin + 0.5 + 12/pdf.k
+
+            # Construct a dot seperated list of section numbers. ex: "1.2.2."
+            level_label = ".".join([str(section_numbers[j]) for j in range(level+1)]) + "."
+            self.render_toc_section(pdf, x, y, outlineSection, level_label)
+
+            y += pdf.font_size
+
+            y += 0.35
+
+    def render_toc_section(self, pdf: FPDF, x: float, y: float, outlineSection: OutlineSection, level_label: str):
+        pdf.text(x, y, f"{level_label} {outlineSection.name} (page {outlineSection.page_number})")
 
     def add_page_number(self) -> None:
         self.set_font("times-new-roman", "", 12)
@@ -231,17 +259,14 @@ class PDFReport(FPDF):
 
         super().cell(w, h, *args, **kwargs)
 
-def read_report_from_toml(filename: str) -> Report:
-    parsed_toml = toml.load(filename)
-    return Report(**parsed_toml)
-
 @click.command()
 @click.argument("input", type=click.Path(exists=True, readable=True, dir_okay=False))
 @click.argument("output", type=click.Path(writable=True, dir_okay=False))
 def main(input: str, output: str):
     report = None
     try:
-        report = read_report_from_toml(input)
+        parsed_toml = toml.load(input)
+        report = Report(**parsed_toml)
     except ValidationError as e:
         click.echo(click.style(f"Validation error from input file ({input}):", fg="red"))
         click.echo(click.style(e, fg="red"))
