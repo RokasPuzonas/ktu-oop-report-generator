@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from math import ceil
 from fpdf import FPDF
 from PIL import Image
 from enum import Enum
@@ -15,6 +16,11 @@ from pydantic import BaseModel, Field
 class Gender(str, Enum):
     MALE = "male"
     FEMALE = "female"
+
+class ReportProject(BaseModel):
+    location: str
+    program: dict[str, str]
+    tests: list[dict[str, str]]
 
 class ReportSection(BaseModel):
     title: str
@@ -46,15 +52,22 @@ class Report(BaseModel):
     def __str__(self) -> str:
         return f"Report[{self.student_name}, {self.title}]"
 
-class PDFReport(FPDF):
-    university_icon = "university-icon.png"
-    toc_max_level = 2
-    line_spacing: float = 1.15
-    report: Report
+class PDFReportStyle(BaseModel):
+    toc_max_level: int = 2
 
-    def __init__(self, report: Report) -> None:
+class PDFReport(FPDF):
+    report: Report
+    style: PDFReportStyle
+    university_icon = "university-icon.png"
+    line_spacing: float = 1.15
+
+    toc_section_spacing_above = 0.21
+    toc_section_spacing_below = 0.35
+
+    def __init__(self, report: Report, style: PDFReportStyle = PDFReportStyle()) -> None:
         super().__init__("portrait", "cm", "A4")
         self.report = report
+        self.style = style
 
         self.add_font("times-new-roman", "", "fonts/times-new-roman.ttf", True)
         self.add_font("times-new-roman", "B", "fonts/times-new-roman-bold.ttf", True)
@@ -142,12 +155,20 @@ class PDFReport(FPDF):
         self.start_section("Darbo užduotis", 1)
         self.start_section("Programos tekstas", 1)
         self.start_section("Pradiniai duomenys ir rezultatai", 1)
-        self.start_section("1 Testas", 2)
-        self.start_section("2 Testas", 2)
+        if section.project_location:
+            self.start_section("1 Testas", 2)
+            self.start_section("2 Testas", 2)
         self.start_section("Dėstytojo pastabos", 1)
 
     def add_toc_page(self):
-        self.insert_toc_placeholder(self.render_toc, 2)
+        toc_height = self.get_effective_toc_height(self.report.sections)
+        # Adjust for title that is at the top of the page
+        eph = self.eph - (0.5 + 12/self.k)
+        toc_height += 12/self.k
+
+        pages = max(1, ceil(toc_height / eph))
+        print(toc_height, eph)
+        self.insert_toc_placeholder(self.render_toc, pages)
 
         # Adjust starting page, because it's a bug
         # When the function creates a new placeholder page, it should start with
@@ -159,7 +180,8 @@ class PDFReport(FPDF):
 
     # TODO: render_toc could use some refactoring
     def render_toc(self, pdf: FPDF, outline: list[OutlineSection]) -> None:
-        pdf.set_y(pdf.t_margin + 0.5 + 12/pdf.k)
+        page_top_y = pdf.t_margin + 0.5 + 12/pdf.k
+        pdf.set_y(page_top_y)
         pdf.set_font("times-new-roman", "", 12)
         pdf.cell(0, txt="TURINYS", align="C", ln=True)
         pdf.ln()
@@ -171,7 +193,7 @@ class PDFReport(FPDF):
             level = int(outlineSection.level)
 
             # Only render up to the specified number of levels levels
-            if level > self.toc_max_level: continue
+            if level > self.style.toc_max_level: continue
 
             # Reset number prefix if a continuos level has ended
             if i > 0:
@@ -181,7 +203,7 @@ class PDFReport(FPDF):
                     section_numbers[level] += 1
 
             # Update font
-            y += 0.21
+            y += self.toc_section_spacing_above
             if level == 0:
                 pdf.set_font("times-new-roman", "B", 14)
             else:
@@ -197,18 +219,34 @@ class PDFReport(FPDF):
             # TODO: find a better solution for this
             if y + pdf.font_size > pdf.page_break_trigger:
                 pdf.page += 1
-                y = pdf.t_margin + 0.5 + 12/pdf.k
+                y = page_top_y
 
             # Construct a dot seperated list of section numbers. ex: "1.2.2."
             level_label = ".".join([str(section_numbers[j]) for j in range(level+1)]) + "."
             self.render_toc_section(pdf, x, y, outlineSection, level_label)
 
             y += pdf.font_size
-
-            y += 0.35
+            y += self.toc_section_spacing_below
 
     def render_toc_section(self, pdf: FPDF, x: float, y: float, outlineSection: OutlineSection, level_label: str):
         pdf.text(x, y, f"{level_label} {outlineSection.name} (page {outlineSection.page_number})")
+
+    # Used for determining how many pages should be inserted in placeholder
+    def get_effective_toc_height(self, sections: list[ReportSection]) -> float:
+        section_text_height = 14/self.k
+        subsection_text_height = 12/self.k
+        margins = self.toc_section_spacing_above + self.toc_section_spacing_below
+        height = 0
+
+        for section in sections:
+            height += section_text_height + margins
+            height += 4 * (subsection_text_height + margins)
+
+            # If each test will be shown in toc, it will need more space
+            if section.project_location and self.style.toc_max_level > 1:
+                height += 2 * (subsection_text_height + margins)
+
+        return height
 
     def add_page_number(self) -> None:
         self.set_font("times-new-roman", "", 12)
