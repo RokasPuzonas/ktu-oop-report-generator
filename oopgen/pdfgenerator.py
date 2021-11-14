@@ -9,10 +9,26 @@ import contextlib
 import stat
 from glob import glob
 from shutil import copytree, rmtree
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 
 from .report import Report, ReportSection, Gender, ReportProject
 from .pdf import PDF
+
+def get_text_rect(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
+    w, h = 0, 0
+    for line in text.splitlines():
+        length = font.getlength(line)
+        w = max(w, length)
+        h += font.size
+    return ceil(w), ceil(h)
+
+def create_image(text: str, font_file: str, font_size: int, h_padding: int = 0, v_padding: int = 0):
+    font = ImageFont.truetype(font_file, font_size)
+    w, h = get_text_rect(text, font)
+    image = Image.new("RGB", (w+h_padding, h+v_padding), (0,0,0))
+    draw = ImageDraw.Draw(image)
+    draw.text((h_padding/2, v_padding/2), text, fill=(255, 255, 255), font=font)
+    return image
 
 @contextlib.contextmanager
 def pushd(new_dir):
@@ -23,8 +39,11 @@ def pushd(new_dir):
 
 @dataclass
 class PDFGeneratorStyle:
-    toc_max_level: int = 2
+    toc_max_level: int = 1
     code_theme: str = "vs"
+
+    console_bg: str = "#000000"
+    console_fg: str = "#FFFFFF"
 
 class PDFGenerator(PDF):
     report: Report
@@ -45,6 +64,10 @@ class PDFGenerator(PDF):
         self.add_font("courier-new", "B", "fonts/courier-new-bold.ttf", True)
         self.add_font("courier-new", "I", "fonts/courier-new-italic.ttf", True)
         self.add_font("courier-new", "BI", "fonts/courier-new-bold-italic.ttf", True)
+        self.add_font("consolas", "", "fonts/consolas.ttf", True)
+        self.add_font("consolas", "B", "fonts/consolas-bold.ttf", True)
+        self.add_font("consolas", "I", "fonts/consolas-italic.ttf", True)
+        self.add_font("consolas", "BI", "fonts/consolas-bold-italic.ttf", True)
         self.add_font("arial", "", "fonts/arial.ttf", True)
         self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
 
@@ -142,8 +165,8 @@ class PDFGenerator(PDF):
 
         # TODO: order files by importance
         self.start_section(f"{index}.2. Programos tekstas", 1)
-        if isinstance(project, ReportProject):
-            self.render_source_code(project.program_files, project.location)
+        # if isinstance(project, ReportProject):
+        #     self.render_source_code(project.program_files, project.location)
 
         self.start_section(f"{index}.3. Pradiniai duomenys ir rezultatai", 1)
         if isinstance(project, ReportProject) and len(project.test_folders) > 0:
@@ -184,6 +207,8 @@ class PDFGenerator(PDF):
         command = "./"+path.basename(executable)
         self.clear_all_except(executable_dir, executable)
 
+        console_font = path.realpath("fonts/consolas.ttf")
+
         copytree(test_folder, executable_dir, dirs_exist_ok=True)
         with pushd(executable_dir):
             outputed_files = []
@@ -222,20 +247,14 @@ class PDFGenerator(PDF):
                         self.multi_cell(0, txt=txt)
                     self.ln()
 
-            console_output = process.stdout.decode("UTF-8")
+            console_output = process.stdout.decode("UTF-8").strip()
             self.set_font("times-new-roman", "", 12)
             self.ln()
             self.cell(txt=f"Konsolė:", ln=True)
-            self.set_font("consolas", "", 16)
             self.ln()
-            self.multi_cell(0, txt=console_output)
+            console_image = create_image(console_output, console_font, 16, 20, 10)
+            self.image(console_image, w=self.epw)
             self.ln()
-
-
-        # test_files_root = path.relpath(test_files[0], project_location)
-        # test_files_root = "/".join(pathlib.Path(test_files_root).parts[2:])
-        # print(test_files_root)
-        # self.set_font("times-new-roman", "", 12)
 
     def render_source_code(self, program_files: list[str], root_path: str):
         for filename in program_files:
