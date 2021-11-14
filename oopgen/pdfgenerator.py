@@ -202,7 +202,23 @@ class PDFGenerator(PDF):
             y += self.toc_section_spacing_below
 
     def render_toc_section(self, pdf: PDF, x: float, y: float, outlineSection: OutlineSection):
-        pdf.text(x, y, f"{outlineSection.name} (page {outlineSection.page_number})")
+        txt = outlineSection.name
+
+        pdf.text(x, y, txt)
+
+        txt_width = self.get_string_width(txt, True)
+        page_width = self.get_page_width()
+        left_over_space = page_width - x - self.r_margin - txt_width
+        page_number_width = self.get_string_width(str(outlineSection.page_number))
+        dot_width = self.get_string_width('.')
+        needed_dots = round((left_over_space - page_number_width)/dot_width - 0.1)
+        page_number_txt = "." * needed_dots + str(outlineSection.page_number)
+
+        pdf.text(
+            page_width-self.get_string_width(page_number_txt)-self.r_margin,
+            y,
+            txt=page_number_txt
+        )
 
     # Used for determining how many pages should be inserted in placeholder
     def get_effective_toc_height(self, sections: list[ReportSection]) -> float:
