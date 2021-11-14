@@ -11,7 +11,7 @@ class Gender(str, Enum):
 class ReportProject:
     location: str
     program_files: list[str]
-    tests: list[list[str]]
+    test_folders: list[str]
 
 @dataclass
 class ReportSection:
@@ -35,6 +35,8 @@ class Report:
     professor_gender: Gender
 
     sections: list[ReportSection] = field(default_factory=list)
+
+    tests_folder: str = field(default="tests")
 
     university_name: str = field(default="Kauno technologijos universitetas")
     faculty_name: str = field(default="Informatikos fakultetas")

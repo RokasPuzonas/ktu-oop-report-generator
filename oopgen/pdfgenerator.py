@@ -2,10 +2,24 @@ from math import ceil
 from dataclasses import dataclass
 from fpdf.fpdf import TitleStyle, ToCPlaceholder
 from fpdf.outline import OutlineSection
+import os
 import os.path as path
+import subprocess
+import contextlib
+import stat
+from glob import glob
+from shutil import copytree, rmtree
+from PIL import Image
 
 from .report import Report, ReportSection, Gender, ReportProject
 from .pdf import PDF
+
+@contextlib.contextmanager
+def pushd(new_dir):
+    previous_dir = os.getcwd()
+    os.chdir(new_dir)
+    yield
+    os.chdir(previous_dir)
 
 @dataclass
 class PDFGeneratorStyle:
@@ -40,7 +54,7 @@ class PDFGenerator(PDF):
         self.set_section_title_styles(
             level0 = TitleStyle("arial", "B", 14, l_margin=self.l_margin+1.5, t_margin=0, b_margin=0.35),
             level1 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+2.5, t_margin=0.15, b_margin=0.35),
-            level2 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+3.5, t_margin=0.35, b_margin=0.35),
+            level2 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+3.5, t_margin=0.25, b_margin=0.35),
         )
 
         self.add_title_page()
@@ -115,34 +129,126 @@ class PDFGenerator(PDF):
 
     def add_section(self, index: int) -> None:
         section = self.report.sections[index]
-        self.add_page()
-
+        project = section.project
         index += 1
+        self.add_page()
         self.start_section(f"{index}. {section.title}")
+
         self.start_section(f"{index}.1. Darbo užduotis", 1)
         if section.problem:
             self.set_font("times-new-roman", "", 12)
             self.write_basic_markdown(section.problem)
             self.ln()
+
+        # TODO: order files by importance
         self.start_section(f"{index}.2. Programos tekstas", 1)
-        if isinstance(section.project, ReportProject):
-            root_path = section.project.location
-            for filename in section.project.program_files:
-                txt = f"{path.relpath(filename, root_path)}:"
-                self.set_font("times-new-roman", "", 12)
-                self.ln()
-                self.cell(txt=txt, ln=True)
-                self.set_font("courier-new", "", 10)
-                self.ln()
-                with open(filename, "r") as f:
-                    code = f.read()[1:].strip()
-                    self.write_csharp(code, self.style.code_theme)
-                self.ln()
+        if isinstance(project, ReportProject):
+            self.render_source_code(project.program_files, project.location)
+
         self.start_section(f"{index}.3. Pradiniai duomenys ir rezultatai", 1)
-        if isinstance(section.project, ReportProject):
-            for i in range(len(section.project.tests)):
-                self.start_section(f"{index}.3.1. {i+1} Testas", 2)
+        if isinstance(project, ReportProject) and len(project.test_folders) > 0:
+            if self.compile_project(project.location):
+                executable = self.find_project_executable(project.location)
+                os.chmod(executable, stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
+                for i in range(len(project.test_folders)):
+                    self.start_section(f"{index}.3.{i+1}. {i+1} Testas", 2)
+                    self.render_test(executable, project.test_folders[i])
+
         self.start_section(f"{index}.4. Dėstytojo pastabos", 1)
+        if section.professors_notes:
+            self.set_font("times-new-roman", "", 12)
+            self.write_basic_markdown(section.professors_notes)
+
+    @staticmethod
+    def compile_project(location: str) -> bool:
+        with pushd(location):
+            process = subprocess.run(["dotnet", "build"], shell=False)
+            return process.returncode == 0
+
+    @staticmethod
+    def find_project_executable(project_location: str) -> str:
+        return glob(path.join(project_location, "bin/Debug/**/*.dll"))[0]
+
+    @staticmethod
+    def clear_all_except(target_location: str, target_file: str):
+        for item in glob(path.join(target_location, "*")):
+            if not path.samefile(item, target_file):
+                if path.isfile(item):
+                    os.remove(item)
+                elif path.isdir(item):
+                    rmtree(item)
+
+    # Will always output created files from the program after input files
+    def render_test(self, executable: str, test_folder: str):
+        executable_dir = path.dirname(executable)
+        command = "./"+path.basename(executable)
+        self.clear_all_except(executable_dir, executable)
+
+        copytree(test_folder, executable_dir, dirs_exist_ok=True)
+        with pushd(executable_dir):
+            outputed_files = []
+
+            for root, _, files in os.walk(".", topdown=True):
+                for file in files:
+                    relpath = path.join(root, file)[2:]
+                    if path.samefile(relpath, executable): continue
+                    outputed_files.append(relpath)
+
+                    self.set_font("times-new-roman", "", 12)
+                    self.ln()
+                    self.cell(txt=f"{relpath}:", ln=True)
+                    self.set_font("courier-new", "", 10)
+                    self.ln()
+                    with open(relpath, "r", encoding='utf-8-sig') as f:
+                        txt = f.read().strip()
+                        self.multi_cell(0, txt=txt)
+                    self.ln()
+
+            process = subprocess.run([command], shell=False, capture_output=True)
+
+            for root, _, files in os.walk(".", topdown=True):
+                for file in files:
+                    relpath = path.join(root, file)[2:]
+                    if path.samefile(relpath, executable): continue
+                    if relpath in outputed_files: continue
+
+                    self.set_font("times-new-roman", "", 12)
+                    self.ln()
+                    self.cell(txt=f"{relpath}:", ln=True)
+                    self.set_font("courier-new", "", 10)
+                    self.ln()
+                    with open(relpath, "r", encoding='utf-8-sig') as f:
+                        txt = f.read().strip()
+                        self.multi_cell(0, txt=txt)
+                    self.ln()
+
+            console_output = process.stdout.decode("UTF-8")
+            self.set_font("times-new-roman", "", 12)
+            self.ln()
+            self.cell(txt=f"Konsolė:", ln=True)
+            self.set_font("consolas", "", 16)
+            self.ln()
+            self.multi_cell(0, txt=console_output)
+            self.ln()
+
+
+        # test_files_root = path.relpath(test_files[0], project_location)
+        # test_files_root = "/".join(pathlib.Path(test_files_root).parts[2:])
+        # print(test_files_root)
+        # self.set_font("times-new-roman", "", 12)
+
+    def render_source_code(self, program_files: list[str], root_path: str):
+        for filename in program_files:
+            txt = f"{path.relpath(filename, root_path)}:"
+            self.set_font("times-new-roman", "", 12)
+            self.ln()
+            self.cell(txt=txt, ln=True)
+            self.set_font("courier-new", "", 10)
+            self.ln()
+            with open(filename, "r", encoding='utf-8-sig') as f:
+                code = f.read().strip()
+                self.write_csharp(code, self.style.code_theme)
+            self.ln()
 
     def add_toc_page(self):
         toc_height = self.get_effective_toc_height(self.report.sections)
@@ -233,17 +339,17 @@ class PDFGenerator(PDF):
 
             # If each test will be shown in toc, it will need more space
             if isinstance(section.project, ReportProject) and self.style.toc_max_level > 1:
-                height += len(section.project.tests) * (subsection_text_height + margins)
+                height += len(section.project.test_folders) * (subsection_text_height + margins)
 
         return height
 
-    def add_page_number(self) -> None:
+    def render_page_number(self) -> None:
         self.set_font("times-new-roman", "", 12)
-        self.set_y(-self.font_size*2-self.b_margin)
+        self.set_y(-self.font_size-self.b_margin)
         self.cell(0, txt=str(self.page_no()), align="R")
 
     def footer(self) -> None:
         if self.page_no() > 1:
-            self.add_page_number()
+            self.render_page_number()
 
 
