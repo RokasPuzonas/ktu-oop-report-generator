@@ -2,19 +2,20 @@ from math import ceil
 from dataclasses import dataclass
 from fpdf.fpdf import TitleStyle, ToCPlaceholder
 from fpdf.outline import OutlineSection
+import os.path as path
 
-from .report import Report, ReportSection, Gender
+from .report import Report, ReportSection, Gender, ReportProject
 from .pdf import PDF
 
 @dataclass
 class PDFGeneratorStyle:
     toc_max_level: int = 2
+    code_theme: str = "vs"
 
 class PDFGenerator(PDF):
     report: Report
     style: PDFGeneratorStyle
     university_icon = "university-icon.png"
-    line_spacing: float = 1.15
 
     toc_section_spacing_above = 0.21
     toc_section_spacing_below = 0.35
@@ -26,8 +27,10 @@ class PDFGenerator(PDF):
 
         self.add_font("times-new-roman", "", "fonts/times-new-roman.ttf", True)
         self.add_font("times-new-roman", "B", "fonts/times-new-roman-bold.ttf", True)
-        self.add_font("times-new-roman", "I", "fonts/times-new-roman-italic.ttf", True)
-        self.add_font("times-new-roman", "BI", "fonts/times-new-roman-bold-italic.ttf", True)
+        self.add_font("courier-new", "", "fonts/courier-new.ttf", True)
+        self.add_font("courier-new", "B", "fonts/courier-new-bold.ttf", True)
+        self.add_font("courier-new", "I", "fonts/courier-new-italic.ttf", True)
+        self.add_font("courier-new", "BI", "fonts/courier-new-bold-italic.ttf", True)
         self.add_font("arial", "", "fonts/arial.ttf", True)
         self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
 
@@ -35,9 +38,9 @@ class PDFGenerator(PDF):
         self.set_auto_page_break(True, 1.5)
 
         self.set_section_title_styles(
-            level0 = TitleStyle("arial", "B", 14, l_margin=self.l_margin+2.25-0.75, t_margin=0, b_margin=0.35),
-            level1 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+4-1, t_margin=0.35, b_margin=0.35),
-            level2 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+5.75-1.25, t_margin=0.35, b_margin=0.35),
+            level0 = TitleStyle("arial", "B", 14, l_margin=self.l_margin+1.5, t_margin=0, b_margin=0.35),
+            level1 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+2.5, t_margin=0.15, b_margin=0.35),
+            level2 = TitleStyle("arial", "B", 12, l_margin=self.l_margin+3.5, t_margin=0.35, b_margin=0.35),
         )
 
         self.add_title_page()
@@ -116,16 +119,29 @@ class PDFGenerator(PDF):
 
         index += 1
         self.start_section(f"{index}. {section.title}")
+        self.start_section(f"{index}.1. Darbo užduotis", 1)
         if section.problem:
             self.set_font("times-new-roman", "", 12)
             self.write_basic_markdown(section.problem)
             self.ln()
-        self.start_section(f"{index}.1. Darbo užduotis", 1)
         self.start_section(f"{index}.2. Programos tekstas", 1)
+        if isinstance(section.project, ReportProject):
+            root_path = section.project.location
+            for filename in section.project.program_files:
+                txt = f"{path.relpath(filename, root_path)}:"
+                self.set_font("times-new-roman", "", 12)
+                self.ln()
+                self.cell(txt=txt, ln=True)
+                self.set_font("courier-new", "", 10)
+                self.ln()
+                with open(filename, "r") as f:
+                    code = f.read()[1:].strip()
+                    self.write_csharp(code, self.style.code_theme)
+                self.ln()
         self.start_section(f"{index}.3. Pradiniai duomenys ir rezultatai", 1)
-        if section.project_location:
-            self.start_section(f"{index}.3.1. 1 Testas", 2)
-            self.start_section(f"{index}.3.2. 2 Testas", 2)
+        if isinstance(section.project, ReportProject):
+            for i in range(len(section.project.tests)):
+                self.start_section(f"{index}.3.1. {i+1} Testas", 2)
         self.start_section(f"{index}.4. Dėstytojo pastabos", 1)
 
     def add_toc_page(self):
@@ -200,8 +216,8 @@ class PDFGenerator(PDF):
             height += 4 * (subsection_text_height + margins)
 
             # If each test will be shown in toc, it will need more space
-            if section.project_location and self.style.toc_max_level > 1:
-                height += 2 * (subsection_text_height + margins)
+            if isinstance(section.project, ReportProject) and self.style.toc_max_level > 1:
+                height += len(section.project.tests) * (subsection_text_height + margins)
 
         return height
 

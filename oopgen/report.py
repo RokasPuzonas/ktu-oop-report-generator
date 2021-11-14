@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 from enum import Enum
 from datetime import date
 
@@ -18,7 +18,7 @@ class ReportSection:
     title: str
 
     problem: Optional[str] = None
-    project_location: Optional[str] = None
+    project: Optional[Union[str, ReportProject]] = None
     professors_notes: Optional[str] = None
 
     def __str__(self) -> str:

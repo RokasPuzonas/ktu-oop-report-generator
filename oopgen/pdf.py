@@ -3,8 +3,10 @@ from pygments.lexers.dotnet import CSharpLexer
 from pygments.token import Token
 from PIL import Image
 from fpdf import FPDF
+from pygments.styles import get_style_by_name
 
 class PDF(FPDF):
+    line_spacing: float = 1.15
     markdown_lexer: MarkdownLexer
     csharp_lexer: CSharpLexer
 
@@ -55,12 +57,29 @@ class PDF(FPDF):
         #         continue
         #     self.write(txt=value)
 
-    def write_csharp(self, text: str):
-        for ttype, value in self.csharp_lexer.get_tokens(text):
-            pass
+    @staticmethod
+    def hex_to_rgb(value):
+        value = value.lstrip('#')
+        lv = len(value)
+        return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
-    def render_text_sections(self, text_sections: list[TextSection]):
-        pass
+    def write_csharp(self, text: str, style_name:str="vs"):
+        style = get_style_by_name(style_name)
+        
+        for ttype, value in self.csharp_lexer.get_tokens(text):
+            s = style.style_for_token(ttype)
+            font_style = ""
+            if s["bold"]:
+                font_style += "B"
+            if s["italic"]:
+                font_style += "I"
+            self.set_font(style=font_style)
+            if s['color'] != None:
+                self.set_text_color(*self.hex_to_rgb(s['color']))
+            else:
+                self.set_text_color(*self.hex_to_rgb('#000000'))
+            self.write(txt=value)
+        self.set_text_color(*self.hex_to_rgb('#000000'))
 
     def get_page_width(self) -> float:
         return self.dw_pt/self.k
