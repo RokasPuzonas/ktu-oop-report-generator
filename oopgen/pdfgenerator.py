@@ -250,13 +250,18 @@ class PDFGenerator(PDF):
             if path.samefile(file, executable): continue
 
             relpath = path.relpath(file, test_folder)
-            self.render_file(file, f"{relpath}:", theme, "c#")
+            self.unbreakable(self.render_file, file, f"{relpath}:", theme, "c#")
+            # self.render_file(file, f"{relpath}:", theme, "c#")
 
-        with self.render_labaled("Konsolė:", "times-new-roman", "", 12):
-            console_output = process.stdout.decode("UTF-8").strip()
-            console_image = self.create_console_image(console_output)
-            numbering_label = f"Konsolės išvestis"
-            self.image(console_image, w=self.epw, numbered=numbering_label)
+        console_output = process.stdout.decode("UTF-8").strip()
+        console_image = self.create_console_image(console_output)
+        numbering_label = f"Konsolės išvestis"
+
+        # TODO: REFACTOR THIS GARBAGE!!!
+        def render():
+            with self.render_labaled("Konsolė:", "times-new-roman", "", 12):
+                self.image(console_image, w=self.epw, numbered=numbering_label)
+        self.unbreakable(render)
 
     def render_csharp_files(self, files: list[str], root_path: str):
         for filename in files:
@@ -287,8 +292,11 @@ class PDFGenerator(PDF):
         eph = self.eph - (0.5 + 12/self.k)
         toc_height += 12/self.k
 
+        def render_toc(*vargs):
+            self.render_toc(*vargs)
+
         pages = max(1, ceil(toc_height / eph))
-        self.insert_toc_placeholder(self.render_toc, pages)
+        self.insert_toc_placeholder(render_toc, pages)
 
         # Adjust starting page, because it's a bug
         # When the function creates a new placeholder page, it should start with

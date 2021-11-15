@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+from copy import deepcopy
 from pygments.token import Token
 from PIL import Image
 from fpdf import FPDF
@@ -39,19 +41,48 @@ class PDF(FPDF):
                 w = name.size[0]
             x = self.l_margin + (self.get_page_width() - self.l_margin - self.r_margin - w)/2
 
-        info = super().image(name, x, y, w, h, type, link, title, alt_text)
+        s = super()
+        if not numbered:
+            return s.image(name, x, y, w, h, type, link, title, alt_text)
 
-        if numbered:
-            text = ""
-            self.numbering_index += 1
-            if isinstance(numbered, str):
-                text = numbered
-            number_label = self.numbering_format.format(i=self.numbering_index, text=text)
-            self.set_font(self.numbering_font_family, self.numbering_font_style, self.numbering_font_size)
+        text = ""
+        self.numbering_index += 1
+        if isinstance(numbered, str):
+            text = numbered
+        number_label = self.numbering_format.format(i=self.numbering_index, text=text)
+        self.set_font(self.numbering_font_family, self.numbering_font_style, self.numbering_font_size)
+
+        # TODO: REFACTOR THIS GARBAGE!!!
+        def render():
+            info = s.image(name, x, y, w, h, type, link, title, alt_text)
             self.set_x(self.get_x() + 1.27)
-            self.cell(txt=number_label)
+            self.cell(txt=number_label, ln=True)
+            return info
+        return self.unbreakable(render)
 
-        return info
+    # TODO: REFACTOR THIS GARBAGE!!!
+    # TODO: replace with contextmanager, when I figure out how to record append
+    # replay function calls.
+    def unbreakable(self, func, *vargs, **kvargs):
+        """
+        Ensures that all rendering performed in this context appear on a single page
+        by performing page break beforehand if need be.
+
+        Notes
+        -----
+
+        Using this method means to duplicate the FPDF `bytearray` buffer:
+        when generating large PDFs, doubling memory usage may be troublesome.
+        """
+        initial = deepcopy(self.__dict__)
+        prev_page, prev_y = self.page, self.y
+        result = func(*vargs, **kvargs)
+        y_scroll = self.y - prev_y + (self.page - prev_page) * self.eph
+        if prev_y + y_scroll > self.page_break_trigger or self.page > prev_page:
+            self.__dict__ = initial
+            self._perform_page_break()
+            result = func(*vargs, **kvargs)
+        return result
 
     # TODO: Create a more feature complete markdown writer
     def write_basic_markdown(self, text: str):
