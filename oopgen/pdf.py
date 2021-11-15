@@ -4,25 +4,54 @@ from fpdf import FPDF
 from pygments.styles import get_style_by_name
 from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
+from typing import Union
 
 class PDF(FPDF):
     line_spacing: float = 1.15
     current_color: tuple[int, int, int]
 
+    numbering_index: int = 0
+    numbering_format: str = "{i} pav. {text}"
+    numbering_font_family: str
+    numbering_font_style: str
+    numbering_font_size: int
+
     def __init__(self, *vargs, **kvargs):
         super().__init__(*vargs, **kvargs)
 
-    def center_image(self, filename: str, w: float = 0, h: float = 0) -> None:
-        if w == 0:
-            im = Image.open(filename)
-            w = im.size[0]
-
-        self.image(
-            filename,
-            w = w,
-            h = h,
+    def image(
+        self,
+        name,
+        x=None,
+        y=None,
+        w=0,
+        h=0,
+        type="",
+        link="",
+        title=None,
+        alt_text=None,
+        centered:bool=False,
+        numbered:Union[str, bool]=False
+    ):
+        if centered:
+            if w == 0:
+                name = Image.open(name)
+                w = name.size[0]
             x = self.l_margin + (self.get_page_width() - self.l_margin - self.r_margin - w)/2
-        )
+
+        info = super().image(name, x, y, w, h, type, link, title, alt_text)
+
+        if numbered:
+            text = ""
+            self.numbering_index += 1
+            if isinstance(numbered, str):
+                text = numbered
+            number_label = self.numbering_format.format(i=self.numbering_index, text=text)
+            self.set_font(self.numbering_font_family, self.numbering_font_style, self.numbering_font_size)
+            self.set_x(self.get_x() + 1.27)
+            self.cell(txt=number_label)
+
+        return info
 
     # TODO: Create a more feature complete markdown writer
     def write_basic_markdown(self, text: str):
@@ -78,7 +107,7 @@ class PDF(FPDF):
 
         DEFAULT_COLOR = (0, 0, 0)
         
-        self.set_text_color(*DEFAULT_COLOR)
+        # self.set_text_color(*DEFAULT_COLOR)
         if not txt: return
 
         style = get_style_by_name(style_name)

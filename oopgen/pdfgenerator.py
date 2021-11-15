@@ -51,6 +51,7 @@ class PDFGenerator(PDF):
 
         self.add_font("times-new-roman", "", "fonts/times-new-roman.ttf", True)
         self.add_font("times-new-roman", "B", "fonts/times-new-roman-bold.ttf", True)
+        self.add_font("times-new-roman", "I", "fonts/times-new-roman-italic.ttf", True)
         self.add_font("courier-new", "", "fonts/courier-new.ttf", True)
         self.add_font("courier-new", "B", "fonts/courier-new-bold.ttf", True)
         self.add_font("courier-new", "I", "fonts/courier-new-italic.ttf", True)
@@ -61,6 +62,10 @@ class PDFGenerator(PDF):
         self.add_font("consolas", "BI", "fonts/consolas-bold-italic.ttf", True)
         self.add_font("arial", "", "fonts/arial.ttf", True)
         self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
+
+        self.numbering_font_family = "times-new-roman"
+        self.numbering_font_style = "I"
+        self.numbering_font_size = 12
 
         self.set_margins(2.5, 1, 1)
         self.set_auto_page_break(True, 1.5)
@@ -81,7 +86,7 @@ class PDFGenerator(PDF):
 
         # Top part
         self.set_y(self.t_margin + 0.5 + 12/self.k)
-        self.center_image(self.university_icon, 1.78, 2.04)
+        self.image(self.university_icon, w=1.78, h=2.04, centered=True)
 
         self.set_font("times-new-roman", "B", 12)
         self.cell(0, self.font_size*1.5, txt=self.report.university_name, align="C", ln=True)
@@ -250,12 +255,13 @@ class PDFGenerator(PDF):
         with self.render_labaled("Konsolė:", "times-new-roman", "", 12):
             console_output = process.stdout.decode("UTF-8").strip()
             console_image = self.create_console_image(console_output)
-            self.image(console_image, w=self.epw)
+            numbering_label = f"Konsolės išvestis"
+            self.image(console_image, w=self.epw, numbered=numbering_label)
 
     def render_csharp_files(self, files: list[str], root_path: str):
         for filename in files:
             label = f"{path.relpath(filename, root_path)}:"
-            self.render_file(filename, label, self.style.syntax_highlighting_theme, "c#")
+            self.render_file(filename, label, self.style.syntax_highlighting_theme, "csharp")
 
     @contextlib.contextmanager
     def render_labaled(self, label: str, label_family: str = None, label_style: str = None, label_size: int = None):
