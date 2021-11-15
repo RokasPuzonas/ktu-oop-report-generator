@@ -86,11 +86,10 @@ class PDF(FPDF):
         #     self.write(txt=value)
 
     @staticmethod
-    def hex_to_rgb(value: str):
-        r = int(value[1:3], 16)
-        g = int(value[3:5], 16)
-        b = int(value[5:7], 16)
-        return r, g, b
+    def hex_to_rgb(value: str) -> tuple[int, int, int]:
+        value = value.lstrip("#")
+        r, g, b = tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
+        return (r, g, b)
 
     def write(self, h: str = None, txt: str = None, link: str = None, syntax_highlighting: tuple[str, str] = None):
         if not syntax_highlighting:
@@ -107,7 +106,7 @@ class PDF(FPDF):
 
         DEFAULT_COLOR = (0, 0, 0)
         
-        # self.set_text_color(*DEFAULT_COLOR)
+        self.set_text_color(*DEFAULT_COLOR)
         if not txt: return
 
         style = get_style_by_name(style_name)
