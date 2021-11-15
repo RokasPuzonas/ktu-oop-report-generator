@@ -34,8 +34,11 @@ def read_project(location: str, tests_folder: str) -> ReportProject:
 
 @click.command()
 @click.argument("input", type=click.Path(exists=True, readable=True, dir_okay=False))
-@click.argument("output", type=click.Path(writable=True, dir_okay=False))
+@click.option("-o", "--output", required=False, type=click.Path(writable=True, dir_okay=False))
 def main(input: str, output: str):
+    if not output:
+        output = path.splitext(input)[0] + ".pdf"
+
     PydanticReport = validate_arguments(Report)
     report = None
     try:
