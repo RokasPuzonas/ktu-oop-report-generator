@@ -1,5 +1,6 @@
 from math import ceil
 from dataclasses import dataclass
+from typing import OrderedDict
 from fpdf.fpdf import TitleStyle, ToCPlaceholder
 from fpdf.outline import OutlineSection
 import os
@@ -14,22 +15,6 @@ from PIL import Image, ImageFont, ImageDraw
 from .report import Report, ReportSection, Gender, ReportProject
 from .pdf import PDF
 
-def get_text_rect(text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
-    w, h = 0, 0
-    for line in text.splitlines():
-        length = font.getlength(line)
-        w = max(w, length)
-        h += font.size
-    return ceil(w), ceil(h)
-
-def create_image(text: str, font_file: str, font_size: int, h_padding: int = 0, v_padding: int = 0):
-    font = ImageFont.truetype(font_file, font_size)
-    w, h = get_text_rect(text, font)
-    image = Image.new("RGB", (w+h_padding, h+v_padding), (0,0,0))
-    draw = ImageDraw.Draw(image)
-    draw.text((h_padding/2, v_padding/2), text, fill=(255, 255, 255), font=font)
-    return image
-
 @contextlib.contextmanager
 def pushd(new_dir):
     previous_dir = os.getcwd()
@@ -40,10 +25,16 @@ def pushd(new_dir):
 @dataclass
 class PDFGeneratorStyle:
     toc_max_level: int = 1
-    code_theme: str = "vs"
+
+    # Default to Visual Studio theme
+    syntax_highlighting_theme: str = "vs"
 
     console_bg: str = "#000000"
     console_fg: str = "#FFFFFF"
+    console_font_file: str = "fonts/consolas.ttf"
+    console_font_size: int = 24
+    console_horizontal_padding: int = 30
+    console_vertical_padding: int = 30
 
 class PDFGenerator(PDF):
     report: Report
@@ -220,60 +211,69 @@ class PDFGenerator(PDF):
     # Will always output created files from the program after input files
     def render_test(self, executable: str, test_folder: str):
         executable_dir = path.dirname(executable)
-        command = "./"+path.basename(executable)
         self.clear_all_except(executable_dir, executable)
 
-        console_font = path.realpath("fonts/consolas.ttf")
-
+        # copy current test files
         copytree(test_folder, executable_dir, dirs_exist_ok=True)
+
+        # Used for storing which files will need to be shown
+        # Files created by the test will always be after the input files
+        used_testing_files = OrderedDict()
+
+        # Record which files are inputs
+        for root, _, files in os.walk(test_folder, topdown=True):
+            for file in files:
+                relpath = path.join(root, file)
+                used_testing_files[relpath] = None
+
+        # Run program
+        process = None
+        command = "./"+path.basename(executable)
         with pushd(executable_dir):
-            outputed_files = []
-
-            for root, _, files in os.walk(".", topdown=True):
-                for file in files:
-                    relpath = path.join(root, file)[2:]
-                    if path.samefile(relpath, executable): continue
-                    outputed_files.append(relpath)
-                    self.render_file(relpath, f"{relpath}:", self.style.code_theme, "c#")
-
             process = subprocess.run([command], shell=False, capture_output=True)
 
-            for root, _, files in os.walk(".", topdown=True):
-                for file in files:
-                    relpath = path.join(root, file)[2:]
-                    if path.samefile(relpath, executable): continue
-                    if relpath in outputed_files: continue
+        # Record which files are outputs
+        for root, _, files in os.walk(test_folder, topdown=True):
+            for file in files:
+                relpath = path.join(root, file)
+                used_testing_files[relpath] = None
 
-                    self.render_file(relpath, f"{relpath}:", self.style.code_theme, "c#")
+        # Render used test files
+        theme = self.style.syntax_highlighting_theme
+        for file in used_testing_files.keys():
+            # Ignore executable
+            if path.samefile(file, executable): continue
 
+            relpath = path.relpath(file, test_folder)
+            self.render_file(file, f"{relpath}:", theme, "c#")
+
+        with self.render_labaled("Konsolė:", "times-new-roman", "", 12):
             console_output = process.stdout.decode("UTF-8").strip()
-            self.set_font("times-new-roman", "", 12)
-            self.ln()
-            self.cell(txt=f"Konsolė:", ln=True)
-            self.ln()
-            console_image = create_image(console_output, console_font, 16, 20, 10)
+            console_image = self.create_console_image(console_output)
             self.image(console_image, w=self.epw)
-            self.ln()
 
     def render_csharp_files(self, files: list[str], root_path: str):
         for filename in files:
             label = f"{path.relpath(filename, root_path)}:"
-            self.render_file(filename, label, self.style.code_theme, "c#")
+            self.render_file(filename, label, self.style.syntax_highlighting_theme, "c#")
 
-
-    def render_file(self, filename: str, label: str, style_name: str, language: str = None):
+    @contextlib.contextmanager
+    def render_labaled(self, label: str, label_family: str = None, label_style: str = None, label_size: int = None):
         self.ln()
-
-        self.set_font("times-new-roman", "", 12)
+        self.set_font(label_family, label_style, label_size)
         self.cell(txt=label, ln=True)
         self.ln()
-
-        self.set_font("courier-new", "", 10)
-        with open(filename, "r", encoding='utf-8-sig') as f:
-            content = f.read().strip()
-            syntax_highlighting = (language or filename, style_name)
-            self.write(txt=content, syntax_highlighting=syntax_highlighting)
+        yield
         self.ln()
+
+    def render_file(self, filename: str, label: str, style_name: str, language: str = None):
+        syntax_highlighting = (language or filename, style_name)
+
+        with self.render_labaled(label, "times-new-roman", "", 12):
+            self.set_font("courier-new", "", 10)
+            with open(filename, "r", encoding='utf-8-sig') as f:
+                contents = f.read().strip()
+                self.write(txt=contents, syntax_highlighting=syntax_highlighting)
 
     def add_toc_page(self):
         toc_height = self.get_effective_toc_height(self.report.sections)
