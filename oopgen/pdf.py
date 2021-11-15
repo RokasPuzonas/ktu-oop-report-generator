@@ -1,19 +1,16 @@
-from pygments.lexers.markup import MarkdownLexer
-from pygments.lexers.dotnet import CSharpLexer
 from pygments.token import Token
 from PIL import Image
 from fpdf import FPDF
 from pygments.styles import get_style_by_name
+from pygments.lexers import get_lexer_by_name
+from pygments.util import ClassNotFound
 
 class PDF(FPDF):
     line_spacing: float = 1.15
-    markdown_lexer: MarkdownLexer
-    csharp_lexer: CSharpLexer
+    current_color: tuple[int, int, int]
 
     def __init__(self, *vargs, **kvargs):
         super().__init__(*vargs, **kvargs)
-        self.markdown_lexer = MarkdownLexer()
-        self.csharp_lexer = CSharpLexer()
 
     def center_image(self, filename: str, w: float = 0, h: float = 0) -> None:
         if w == 0:
@@ -29,8 +26,10 @@ class PDF(FPDF):
 
     # TODO: Create a more feature complete markdown writer
     def write_basic_markdown(self, text: str):
+        lexer = get_lexer_by_name("markdown")
+
         paragraph: list[str] = []
-        for ttype, value in self.markdown_lexer.get_tokens(text):
+        for ttype, value in lexer.get_tokens(text):
             if ttype == Token.Keyword and value == "*":
                 paragraph.append("•")
                 continue
@@ -58,15 +57,32 @@ class PDF(FPDF):
         #     self.write(txt=value)
 
     @staticmethod
-    def hex_to_rgb(value):
-        value = value.lstrip('#')
-        lv = len(value)
-        return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+    def hex_to_rgb(value: str):
+        r = int(value[1:3], 16)
+        g = int(value[3:5], 16)
+        b = int(value[5:7], 16)
+        return r, g, b
 
-    def write_csharp(self, text: str, style_name:str="vs"):
-        style = get_style_by_name(style_name)
+    def write(self, h: str = None, txt: str = None, link: str = None, syntax_highlighting: tuple[str, str] = None):
+        if not syntax_highlighting:
+            super().write(h, txt, link)
+            return
+
+        language, style_name = syntax_highlighting
+        lexer = None
+        try:
+            lexer = get_lexer_by_name(language)
+        except ClassNotFound:
+            super().write(h, txt, link)
+            return
+
+        DEFAULT_COLOR = (0, 0, 0)
         
-        for ttype, value in self.csharp_lexer.get_tokens(text):
+        self.set_text_color(*DEFAULT_COLOR)
+        if not txt: return
+
+        style = get_style_by_name(style_name)
+        for ttype, value in lexer.get_tokens(txt):
             s = style.style_for_token(ttype)
             font_style = ""
             if s["bold"]:
@@ -77,9 +93,10 @@ class PDF(FPDF):
             if s['color'] != None:
                 self.set_text_color(*self.hex_to_rgb(s['color']))
             else:
-                self.set_text_color(*self.hex_to_rgb('#000000'))
+                self.set_text_color(*DEFAULT_COLOR)
             self.write(txt=value)
-        self.set_text_color(*self.hex_to_rgb('#000000'))
+
+        self.set_text_color(*DEFAULT_COLOR)
 
     def get_page_width(self) -> float:
         return self.dw_pt/self.k

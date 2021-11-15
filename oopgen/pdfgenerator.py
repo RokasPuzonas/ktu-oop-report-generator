@@ -165,8 +165,8 @@ class PDFGenerator(PDF):
 
         # TODO: order files by importance
         self.start_section(f"{index}.2. Programos tekstas", 1)
-        # if isinstance(project, ReportProject):
-        #     self.render_source_code(project.program_files, project.location)
+        if isinstance(project, ReportProject):
+            self.render_csharp_files(project.program_files, project.location)
 
         self.start_section(f"{index}.3. Pradiniai duomenys ir rezultatai", 1)
         if isinstance(project, ReportProject) and len(project.test_folders) > 0:
@@ -201,6 +201,22 @@ class PDFGenerator(PDF):
                 elif path.isdir(item):
                     rmtree(item)
 
+    def create_console_image(self, text: str):
+        font_file = path.realpath(self.style.console_font_file)
+        font_size = self.style.console_font_size
+        font = ImageFont.truetype(font_file, font_size)
+        w, h = font.getsize_multiline(text)
+
+        h_padding = self.style.console_horizontal_padding
+        v_padding = self.style.console_vertical_padding
+        bg = self.hex_to_rgb(self.style.console_bg)
+        fg = self.hex_to_rgb(self.style.console_fg)
+        image = Image.new("RGB", (w+h_padding, h+v_padding), bg)
+        draw = ImageDraw.Draw(image)
+        draw.text((h_padding/2, v_padding/2), text, fill=fg, font=font)
+
+        return image
+
     # Will always output created files from the program after input files
     def render_test(self, executable: str, test_folder: str):
         executable_dir = path.dirname(executable)
@@ -218,16 +234,7 @@ class PDFGenerator(PDF):
                     relpath = path.join(root, file)[2:]
                     if path.samefile(relpath, executable): continue
                     outputed_files.append(relpath)
-
-                    self.set_font("times-new-roman", "", 12)
-                    self.ln()
-                    self.cell(txt=f"{relpath}:", ln=True)
-                    self.set_font("courier-new", "", 10)
-                    self.ln()
-                    with open(relpath, "r", encoding='utf-8-sig') as f:
-                        txt = f.read().strip()
-                        self.multi_cell(0, txt=txt)
-                    self.ln()
+                    self.render_file(relpath, f"{relpath}:", self.style.code_theme, "c#")
 
             process = subprocess.run([command], shell=False, capture_output=True)
 
@@ -237,15 +244,7 @@ class PDFGenerator(PDF):
                     if path.samefile(relpath, executable): continue
                     if relpath in outputed_files: continue
 
-                    self.set_font("times-new-roman", "", 12)
-                    self.ln()
-                    self.cell(txt=f"{relpath}:", ln=True)
-                    self.set_font("courier-new", "", 10)
-                    self.ln()
-                    with open(relpath, "r", encoding='utf-8-sig') as f:
-                        txt = f.read().strip()
-                        self.multi_cell(0, txt=txt)
-                    self.ln()
+                    self.render_file(relpath, f"{relpath}:", self.style.code_theme, "c#")
 
             console_output = process.stdout.decode("UTF-8").strip()
             self.set_font("times-new-roman", "", 12)
@@ -256,18 +255,25 @@ class PDFGenerator(PDF):
             self.image(console_image, w=self.epw)
             self.ln()
 
-    def render_source_code(self, program_files: list[str], root_path: str):
-        for filename in program_files:
-            txt = f"{path.relpath(filename, root_path)}:"
-            self.set_font("times-new-roman", "", 12)
-            self.ln()
-            self.cell(txt=txt, ln=True)
-            self.set_font("courier-new", "", 10)
-            self.ln()
-            with open(filename, "r", encoding='utf-8-sig') as f:
-                code = f.read().strip()
-                self.write_csharp(code, self.style.code_theme)
-            self.ln()
+    def render_csharp_files(self, files: list[str], root_path: str):
+        for filename in files:
+            label = f"{path.relpath(filename, root_path)}:"
+            self.render_file(filename, label, self.style.code_theme, "c#")
+
+
+    def render_file(self, filename: str, label: str, style_name: str, language: str = None):
+        self.ln()
+
+        self.set_font("times-new-roman", "", 12)
+        self.cell(txt=label, ln=True)
+        self.ln()
+
+        self.set_font("courier-new", "", 10)
+        with open(filename, "r", encoding='utf-8-sig') as f:
+            content = f.read().strip()
+            syntax_highlighting = (language or filename, style_name)
+            self.write(txt=content, syntax_highlighting=syntax_highlighting)
+        self.ln()
 
     def add_toc_page(self):
         toc_height = self.get_effective_toc_height(self.report.sections)
