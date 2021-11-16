@@ -159,13 +159,15 @@ class PDFGenerator(PDF):
             self.write_basic_markdown(section.problem)
             self.ln()
 
-        # TODO: order files by importance
+        # TODO: Add ability to manually define the file order
         self.start_section(f"{index}.2. Programos tekstas", 1)
         if isinstance(project, ReportProject):
+            self.sort_files_by_importance(project.program_files)
             self.render_csharp_files(project.program_files, project.location)
 
         self.start_section(f"{index}.3. Pradiniai duomenys ir rezultatai", 1)
         if isinstance(project, ReportProject) and len(project.test_folders) > 0:
+            project.test_folders.sort()
             if self.compile_project(project.location):
                 executable = self.find_project_executable(project.location)
                 os.chmod(executable, stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
@@ -177,6 +179,39 @@ class PDFGenerator(PDF):
         if section.professors_notes:
             self.set_font("times-new-roman", "", 12)
             self.write_basic_markdown(section.professors_notes)
+
+    # Sort by 2 keys: csharp file type, character count
+    # 1. A register class is more important than an enum
+    # 2. A longer file is probably more important also
+    @staticmethod
+    def sort_files_by_importance(files: list[str]):
+        file_priorities = {}
+        file_sizes = {}
+        for file in files:
+            file_priorities[file] = PDFGenerator.get_csharp_file_priority(file)
+            file_sizes[file] = path.getsize(file)
+
+        files.sort(key=lambda file: (file_priorities[file], file_sizes[file]))
+
+    # The higher the number, the later in the list it will be placed
+    @staticmethod
+    def get_csharp_file_priority(filename):
+        # Name - Extracted from filename ex: /foo/bar/MyContainer.cs -> MyContainer
+        name: str = path.splitext(path.basename(filename))[0]
+        name = name.lower()
+        if "program" in name:
+            return 10
+        if "register" in name:
+            return 8
+        if "container" in name:
+            return 6
+
+        with open(filename, "r", encoding='utf-8-sig') as f:
+            contents = f.read()
+            if "enum" in contents:
+                return -1
+
+        return 0
 
     @staticmethod
     def compile_project(location: str) -> bool:
@@ -226,7 +261,7 @@ class PDFGenerator(PDF):
         used_testing_files = OrderedDict()
 
         # Record which files are inputs
-        for root, _, files in os.walk(test_folder, topdown=True):
+        for root, _, files in os.walk(executable_dir, topdown=True):
             for file in files:
                 relpath = path.join(root, file)
                 used_testing_files[relpath] = None
@@ -238,7 +273,7 @@ class PDFGenerator(PDF):
             process = subprocess.run([command], shell=False, capture_output=True)
 
         # Record which files are outputs
-        for root, _, files in os.walk(test_folder, topdown=True):
+        for root, _, files in os.walk(executable_dir, topdown=True):
             for file in files:
                 relpath = path.join(root, file)
                 used_testing_files[relpath] = None
@@ -249,7 +284,7 @@ class PDFGenerator(PDF):
             # Ignore executable
             if path.samefile(file, executable): continue
 
-            relpath = path.relpath(file, test_folder)
+            relpath = path.relpath(file, executable_dir)
             self.unbreakable(self.render_file, file, f"{relpath}:", theme, "c#")
             # self.render_file(file, f"{relpath}:", theme, "c#")
 
