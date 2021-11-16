@@ -10,6 +10,10 @@ from glob import glob
 from oopgen import Report, PDFGenerator
 from oopgen.report import ReportProject
 
+# TODO: Create a full report by just having a git repository url ant the configurations filename
+# TODO: Clear old build files, before rebuilding project.
+# TODO: Add support for loading program descriptions from individual README files
+# TODO: Support loading project from git urls
 def read_project(location: str, tests_folder: str) -> ReportProject:
     if not path.exists(location):
         raise FileNotFoundError(f"Project '{location}' dosen't exist")
