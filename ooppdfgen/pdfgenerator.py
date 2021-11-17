@@ -215,9 +215,8 @@ class PDFGenerator(PDF):
 
     @staticmethod
     def compile_project(location: str) -> bool:
-        with pushd(location):
-            process = subprocess.run(["dotnet", "build"], shell=False)
-            return process.returncode == 0
+        process = subprocess.run(["dotnet", "build", location, "/nowarn:netsdk113", "/nowarn:netsdk1138", "--nologo"], shell=False)
+        return process.returncode == 0
 
     @staticmethod
     def find_project_executable(project_location: str) -> str:
