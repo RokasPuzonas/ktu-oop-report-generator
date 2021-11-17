@@ -7,8 +7,8 @@ import toml
 import os.path as path
 from glob import glob
 
-from oopgen import Report, PDFGenerator
-from oopgen.report import ReportProject
+from ooppdfgen import Report, PDFGenerator
+from ooppdfgen.report import ReportProject
 
 # TODO: Create a full report by just having a git repository url ant the configurations filename
 # TODO: Clear old build files, before rebuilding project.
