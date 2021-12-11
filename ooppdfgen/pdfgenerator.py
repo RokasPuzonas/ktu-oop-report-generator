@@ -188,6 +188,7 @@ class PDFGenerator(PDF):
         if isinstance(project, ReportProject) and len(project.test_folders) > 0:
             project.test_folders.sort()
             if self.compile_project(project.location):
+            # if True:
                 executable = self.find_project_executable(project.location)
                 os.chmod(executable, stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
                 for i in range(len(project.test_folders)):
@@ -307,14 +308,16 @@ class PDFGenerator(PDF):
             # self.render_file(file, f"{relpath}:", theme, "c#")
 
         console_output = process.stdout.decode("UTF-8").strip()
-        console_image = self.create_console_image(console_output)
-        numbering_label = f"Konsolės išvestis"
+        if len(console_output) > 0:
+            console_image = self.create_console_image(console_output)
+            numbering_label = f"Konsolės išvestis"
 
-        # TODO: REFACTOR THIS GARBAGE!!!
-        def render():
-            with self.render_labaled("Konsolė:", "times-new-roman", "", 12):
-                self.image(console_image, w=self.epw, numbered=numbering_label)
-        self.unbreakable(render)
+            # TODO: REFACTOR THIS GARBAGE!!!
+            # Use a ContextManager instead
+            def render():
+                with self.render_labaled("Konsolė:", "times-new-roman", "", 12):
+                    self.image(console_image, w=self.epw, numbered=numbering_label)
+            self.unbreakable(render)
 
     def render_csharp_files(self, files: list[str], root_path: str):
         for filename in files:
