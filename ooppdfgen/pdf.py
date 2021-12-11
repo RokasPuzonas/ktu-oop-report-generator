@@ -104,15 +104,29 @@ class PDF(FPDF):
         return result
 
     # TODO: Create a more feature complete markdown writer
+    # TODO: Feature: Only double \n\n create a \n
     def write_basic_markdown(self, text: str):
         lexer = get_lexer_by_name("markdown")
 
         paragraph: list[str] = []
+        prev_value = ""
         for ttype, value in lexer.get_tokens(text):
-            if ttype == Token.Keyword and value == "*":
-                paragraph.append("•")
-                continue
-            paragraph.append(value)
+            # if ttype == Token.Generic.Strong:
+                # pass
+                # self.multi_cell(0, txt="".join(paragraph))
+                # paragraph = []
+                # self.set_font(style="B")
+                # self.write(txt=value)
+                # self.set_font(style="")
+                # self.multi_cell(0, txt="".join(paragraph))
+            if ttype == Token.Keyword and value == "*" and prev_value == "\n":
+                paragraph.append("\n•")
+            elif value == "\n" and prev_value == "\n":
+                paragraph.append("\n")
+            elif value != '\n':
+                paragraph.append(value)
+            prev_value = value
+
         self.multi_cell(0, txt="".join(paragraph))
         # # Altenative that supports bolding and italics
         # # but can't do justify align.
