@@ -18,7 +18,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Optional
 from enum import Enum
 
 class Gender(str, Enum):

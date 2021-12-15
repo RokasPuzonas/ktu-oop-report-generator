@@ -46,12 +46,18 @@ def pushd(new_dir):
 current_year = date.today().year
 
 class ProjectNotFoundError(FileNotFoundError):
+    """
+    Given was not pointing to a valid C# project
+    """
     pass
 
 # Sort by 2 keys: csharp file type, character count
 # 1. A register class is more important than an enum
 # 2. A longer file is probably more important also
-def key_by_importance(_, filename: str):
+def key_by_importance(_, filename: str) -> tuple[int, int]:
+    """
+    Returns a tuple with the rating and size of given project file
+    """
     rating = 0
     size = path.getsize(filename)
     filename = filename.lower()
@@ -104,6 +110,10 @@ class ReportPDF(PDF):
     toc_section_spacing_above = 0.21
     toc_section_spacing_below = 0.35
 
+    numbering_font_family = "times-new-roman"
+    numbering_font_style = "I"
+    numbering_font_size = 12
+
     def __init__(self, report: Report = None) -> None:
         super().__init__("portrait", "cm", "A4")
         self.total_sections = 0
@@ -122,10 +132,6 @@ class ReportPDF(PDF):
         self.add_font("arial", "", "fonts/arial.ttf", True)
         self.add_font("arial", "B", "fonts/arial-bold.ttf", True)
 
-        self.numbering_font_family = "times-new-roman"
-        self.numbering_font_style = "I"
-        self.numbering_font_size = 12
-
         self.set_margins(2.5, 1, 1)
         self.set_auto_page_break(True, 1.5)
 
@@ -136,8 +142,8 @@ class ReportPDF(PDF):
         )
 
         if report != None:
-            self.add_title_page_by_report(report)
-            self.add_toc_page(report.sections)
+            self.add_title_page(report)
+            self.add_toc_page(report)
             for section in report.sections:
                 project_root = None
                 if section.project:
@@ -158,9 +164,13 @@ class ReportPDF(PDF):
 
     @staticmethod
     def generate(report: Report, output: str):
+        """
+        Convenience method for generating a PDF based on a report and saving it
+        """
         ReportPDF(report).output(output)
 
-    def add_title_page_by_report(self, report: Report):
+    @staticmethod
+    def _get_people_from_report(report: Report) -> list[tuple[str, str]]:
         people = []
         if report.student.gender == Gender.MALE:
             people.append((report.student.name, "Studentas"))
@@ -171,10 +181,12 @@ class ReportPDF(PDF):
             people.append((report.lecturer.name, "Dėstytojas"))
         else:
             people.append((report.lecturer.name, "Dėstytoja"))
+        return people
 
-        self.add_title_page(report.title, people)
-
-    def add_title_page(self, title: str, people: list[tuple[str, str]]) -> None:
+    def add_title_page(self, report: Report) -> None:
+        """
+        Add title page by getting needed information from a report
+        """
         self.add_page()
 
         # Top part
@@ -186,9 +198,9 @@ class ReportPDF(PDF):
 
         self.set_font("times-new-roman", "B", 12)
         if self.university_name:
-            self.cell(0, self.font_size*1.5, txt=self.university_name, align="C", ln=True)
+            self.cell(0, self.font_size*1.5, txt=self.university_name, align="C", ln=True) # type: ignore
         else:
-            self.ln(self.font_size*1.5)
+            self.ln(self.font_size*1.5) # type: ignore
 
         self.set_font("times-new-roman", "", 12)
         if self.faculty_name:
@@ -200,7 +212,7 @@ class ReportPDF(PDF):
         self.ln(self.font_size*15)
 
         self.set_font("times-new-roman", "B", 18)
-        self.cell(0, txt=title, align="C", ln=True)
+        self.cell(0, txt=report.title, align="C", ln=True)
         
         self.set_font("times-new-roman", "", 14)
         if self.sub_title:
@@ -216,32 +228,35 @@ class ReportPDF(PDF):
         # Seperator
         y = self.get_y()
         self.set_draw_color(*self.title_page_seperator_color)
-        self.line(width/2+self.font_size, y, width-self.r_margin, y)
+        self.line(width/2+self.font_size, y, width-self.r_margin, y) # type: ignore
         self.ln(self.font_size*2)
 
-        for i in range(len(people)):
+        for i in range(len(self._get_people_from_report(report))):
             name, proffesion = people[i]
 
             self.set_font("times-new-roman", "B", 12)
-            self.cell(x=width/2 + self.font_size, w=width/2, txt=name, align="L", ln=True)
+            self.cell(x=width/2 + self.font_size, w=width/2, txt=name, align="L", ln=True) # type: ignore
             self.ln(self.font_size)
 
             self.set_font("times-new-roman", "", 12)
-            self.cell(x=width/2 + self.font_size, w=width/2, txt=proffesion, align="L", ln=True)
+            self.cell(x=width/2 + self.font_size, w=width/2, txt=proffesion, align="L", ln=True) # type: ignore
             self.ln(self.font_size*3)
 
         # Seperator
         y = self.get_y()
         self.set_draw_color(*self.title_page_seperator_color)
-        self.line(width/2+self.font_size, y, width-self.r_margin, y)
+        self.line(width/2+self.font_size, y, width-self.r_margin, y) # type: ignore
 
         # Footer
         self.set_font("times-new-roman", "B", 12)
-        self.set_y(-self.font_size*2-self.b_margin)
+        self.set_y(-self.font_size*2-self.b_margin) # type: ignore
         self.cell(0, txt=self.title_page_footer, align="C")
 
     @staticmethod
     def determine_project_root(project: str) -> Optional[str]:
+        """
+        Extract project root folder. If given path points to a .csproj file, return the directory it's in.
+        """
         if path.isfile(project) and project.endswith(".csproj"):
             return path.dirname(project)
         elif path.isdir(project) and len(glob(path.join(project, "*.csproj"))) > 0:
@@ -249,10 +264,16 @@ class ReportPDF(PDF):
 
     @staticmethod
     def is_project_root(project_root: str) -> bool:
+        """
+        Returns true if given directory contains a .csproj file
+        """
         return path.isdir(project_root) and len(glob(path.join(project_root, "*.csproj"))) > 0
     
     @staticmethod
     def list_project_files(project_root: str) -> list[str]:
+        """
+        Retrieve a list of source code files from given C# project root directory.
+        """
         assert ReportPDF.is_project_root(project_root), "Expected to receive path of root project folder"
         files = []
 
@@ -272,6 +293,9 @@ class ReportPDF(PDF):
             label_style: str = None,
             label_size: int = None
         ):
+        """
+        Render label above block
+        """
         self.set_font(label_family, label_style, label_size)
         self.cell(txt=label, ln=True)
         self.ln()
@@ -285,12 +309,18 @@ class ReportPDF(PDF):
             style_name: Optional[str] = None,
             language: Optional[str] = None
         ):
+        """
+        Render a file's contents to the page, with optional syntax highlighting
+        """
         with self.render_labeled(label, "times-new-roman", "", 12):
             self.set_font("courier-new", "", 10)
             self.write(txt=content, language=language, style_name=style_name)
             self.ln()
 
     def render_project_files(self, project_root: str):
+        """
+        Render source code files from C# project given it's root directory.
+        """
         assert ReportPDF.is_project_root(project_root), "Expected to receive path of root project folder"
 
         project_files = self.list_project_files(project_root)
@@ -310,6 +340,10 @@ class ReportPDF(PDF):
 
     @staticmethod
     def find_executable(directory: str) -> Optional[str]:
+        """
+        Find file which is executable in directory. Or try guess which file should
+        be the executable by .dll ending.
+        """
         # Try searching for a file which is marked as executable
         for filename in glob(path.join(directory, "*")):
             if os.access(filename, os.X_OK):
@@ -325,6 +359,9 @@ class ReportPDF(PDF):
 
     @staticmethod
     def remove_all_except(directory: str, ignored_file: str):
+        """
+        Clear all files, except specifies one
+        """
         for item in glob(path.join(directory, "*")):
             if not path.samefile(item, ignored_file):
                 if path.isfile(item):
@@ -333,22 +370,28 @@ class ReportPDF(PDF):
                     rmtree(item)
     
     def build_project(self, project_root: str, output_directory: str) -> Optional[str]:
-            cmd = ["dotnet", "build", project_root, "-o", output_directory, *self.builld_arguments]
-            process = subprocess.run(cmd, shell=False, capture_output=True)
+        """
+        Build C# project using dotnet cli and output it to given directory
+        """
+        cmd = ["dotnet", "build", project_root, "-o", output_directory, *self.builld_arguments]
+        process = subprocess.run(cmd, shell=False, capture_output=True)
 
-            # If failed to compile
-            if process.returncode != 0:
-                print(process.stderr)
-                return None
+        # If failed to compile
+        if process.returncode != 0:
+            print(process.stderr)
+            return None
 
-            executable = ReportPDF.find_executable(output_directory)
-            if not executable:
-                return None
+        executable = ReportPDF.find_executable(output_directory)
+        if not executable:
+            return None
 
-            return executable
+        return executable
 
     @staticmethod
     def has_subfolders(directory: str) -> bool:
+        """
+        Return true, if given folder has subfolders
+        """
         if path.isdir(directory):
             for item in os.listdir(directory):
                 if path.isdir(path.join(directory, item)):
@@ -357,6 +400,9 @@ class ReportPDF(PDF):
 
     @staticmethod
     def list_subfolders(directory: str) -> list[str]:
+        """
+        Returns a list of the immidiate sub folders in directory
+        """
         subfolders = []
         for item in os.listdir(directory):
             full_path = path.join(directory, item)
@@ -365,6 +411,9 @@ class ReportPDF(PDF):
         return subfolders
 
     def render_tests(self, executable: str, tests_folder: str):
+        """
+        Render test cases to the page
+        """
         assert ReportPDF.has_subfolders(tests_folder), "Expected tests folder, to have subfolders"
         assert os.access(executable, os.X_OK), "Excpected to be able to run executable, insufficient permissions"
 
@@ -377,6 +426,9 @@ class ReportPDF(PDF):
                 self.render_test(executable, test_folder)
 
     def create_console_image(self, text: str):
+        """
+        Render text to image
+        """
         font = ImageFont.truetype(self.console_font_file, self.console_font_size)
         w, h = font.getsize_multiline(text)
 
@@ -394,6 +446,9 @@ class ReportPDF(PDF):
         return image
 
     def render_test(self, executable: str, test_folder: str):
+        """
+        Render test case to the page
+        """
         assert os.access(executable, os.X_OK), "Excpected to be able to run executable, insufficient permissions"
         assert path.isdir(test_folder), "Failed to verify that given test folder is a folder"
 
@@ -449,6 +504,13 @@ class ReportPDF(PDF):
             lecturers_comment: Optional[str] = None,
             tests_folder: Optional[str] = None
         ) -> None:
+        """
+        Render a section from a report to the page. This will render:
+        * Problem text
+        * Project files
+        * Run and render test cases
+        * Lecturers notes
+        """
         if project_root:
             assert ReportPDF.is_project_root(project_root), "Expected to receive path of root project folder"
 
@@ -485,16 +547,22 @@ class ReportPDF(PDF):
             build_directory.cleanup()
 
     def render_page_number(self) -> None:
+        """
+        Render page number at the bottom of the current page
+        """
         self.set_font("times-new-roman", "", 12)
-        self.set_y(-self.font_size-self.b_margin)
+        self.set_y(-self.font_size-self.b_margin) # type: ignore
         self.cell(0, txt=str(self.page_no()), align="R")
 
     def footer(self) -> None:
         if self.page_no() > 1:
             self.render_page_number()
 
-    def add_toc_page(self, sections: list[ReportSection]):
-        toc_height = self.get_effective_toc_height(sections)
+    def add_toc_page(self, report: Report):
+        """
+        Add table of contents to page
+        """
+        toc_height = self.get_effective_toc_height(report.sections)
         # Adjust for title that is at the top of the page
         eph = self.eph - (0.5 + 12/self.k)
         toc_height += 12/self.k
@@ -515,6 +583,9 @@ class ReportPDF(PDF):
 
     # TODO: render_toc could use some refactoring
     def render_toc(self, pdf: PDF, outline: list[OutlineSection]) -> None:
+        """
+        Render table of contents
+        """
         page_top_y = pdf.t_margin + 0.5 + 12/pdf.k
         pdf.set_y(page_top_y)
         pdf.set_font("times-new-roman", "", 12)
@@ -554,6 +625,9 @@ class ReportPDF(PDF):
             y += self.toc_section_spacing_below
 
     def render_toc_section(self, pdf: PDF, x: float, y: float, outlineSection: OutlineSection):
+        """
+        Render a single section from the table of contents
+        """
         txt = outlineSection.name
 
         pdf.text(x, y, txt)
@@ -574,6 +648,9 @@ class ReportPDF(PDF):
 
     # Used for determining how many pages should be inserted in placeholder
     def get_effective_toc_height(self, sections: list[ReportSection]) -> float:
+        """
+        Estimate how much space the table of contents is gonna take up
+        """
         section_text_height = 14/self.k
         subsection_text_height = 12/self.k
         margins = self.toc_section_spacing_above + self.toc_section_spacing_below
