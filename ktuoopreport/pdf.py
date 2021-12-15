@@ -25,20 +25,22 @@ from fpdf import FPDF
 from pygments.styles import get_style_by_name
 from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
-from typing import Union
+from typing import Iterator, Union, Optional
 
 class PDF(FPDF):
     line_spacing: float = 1.15
     current_color: tuple[int, int, int]
 
     numbering_index: int = 0
-    numbering_format: str = "{i} pav. {text}"
     numbering_font_family: str
     numbering_font_style: str
     numbering_font_size: int
 
+    section_levels: list[int]
+
     def __init__(self, *vargs, **kvargs):
         super().__init__(*vargs, **kvargs)
+        self.section_levels = [1]
 
     def image(
         self,
@@ -64,11 +66,12 @@ class PDF(FPDF):
         if not numbered:
             return s.image(name, x, y, w, h, type, link, title, alt_text)
 
-        text = ""
+        number_label = ""
         self.numbering_index += 1
         if isinstance(numbered, str):
-            text = numbered
-        number_label = self.numbering_format.format(i=self.numbering_index, text=text)
+            number_label = numbered.format(index=self.numbering_index)
+        else:
+            number_label = f"{self.numbering_index}."
         self.set_font(self.numbering_font_family, self.numbering_font_style, self.numbering_font_size)
 
         # TODO: REFACTOR THIS GARBAGE!!!
@@ -78,6 +81,23 @@ class PDF(FPDF):
             self.cell(txt=number_label, ln=True)
             return info
         return self.unbreakable(render)
+
+    def push_section(self, label: Optional[str] = None, *args, **kvargs):
+        self.section_levels.append(1)
+        if label:
+            level = "".join(str(lvl)+"." for lvl in self.section_levels[:-1])
+            label = label.format(level = level, *args, **kvargs)
+        super().start_section(label or "", len(self.section_levels)-2)
+    
+    def pop_section(self):
+        self.section_levels.pop()
+        self.section_levels[-1] += 1
+
+    @contextmanager
+    def section_block(self, label: Optional[str] = None, *args, **kvargs):
+        self.push_section(label, *args, **kvargs)
+        yield
+        self.pop_section()
 
     # TODO: REFACTOR THIS GARBAGE!!!
     # TODO: replace with contextmanager, when I figure out how to record append
@@ -155,12 +175,18 @@ class PDF(FPDF):
         r, g, b = tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
         return (r, g, b)
 
-    def write(self, h: str = None, txt: str = None, link: str = None, syntax_highlighting: tuple[str, str] = None):
-        if not syntax_highlighting:
+    def write(
+            self,
+            h: str = None,
+            txt: str = None,
+            link: str = None,
+            language: Optional[str] = None,
+            style_name: Optional[str] = None
+        ):
+        if not (language and style_name):
             super().write(h, txt, link)
             return
 
-        language, style_name = syntax_highlighting
         lexer = None
         try:
             lexer = get_lexer_by_name(language)
