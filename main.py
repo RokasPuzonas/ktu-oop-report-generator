@@ -6,7 +6,7 @@ import os.path as path
 from enum import Enum
 
 from dacite.core import from_dict
-from dacite import Config
+from dacite.config import Config
 
 from ktuoopreport import Report, ReportPDF
 
@@ -15,14 +15,13 @@ from ktuoopreport import Report, ReportPDF
 # TODO: Add support for loading program descriptions from individual README files
 # TODO: Support loading project from git urls
 
-
 def read_report_toml(filename: str) -> Report:
     report = None
     try:
         parsed_toml = toml.load(filename)
         report = from_dict(
                 data_class = Report,
-                data = parsed_toml,
+                data = parsed_toml, # type: ignore
                 config = Config(cast = [Enum])
         )
     except toml.TomlDecodeError as e:
@@ -51,10 +50,10 @@ def main(input: str, output: str):
     # Beware this method is devious. I can end the program with sys.exit
     report = read_report_toml(input)
 
-    # ReportPDF.generate(report, output)
+    ReportPDF.generate(report, output)
 
-    pdf = ReportPDF(report)
-    pdf.output(output)
+    # pdf = ReportPDF(report)
+    # pdf.output(output)
 
 
 if __name__ == "__main__":
