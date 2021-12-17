@@ -8,7 +8,7 @@ from enum import Enum
 from dacite.core import from_dict
 from dacite.config import Config
 
-from ktuoopreport import Report, ReportPDF
+from ktuoopreport import Report, ReportPDF, Gender, Person, ReportSection
 
 # TODO: Create a full report by just having a git repository url ant the configurations filename
 # TODO: Clear old build files, before rebuilding project.
@@ -52,9 +52,20 @@ def main(input: str, output: str):
 
     ReportPDF.generate(report, output)
 
-    # pdf = ReportPDF(report)
-    # pdf.output(output)
+def example():
+    example_report = Report(
+        title = "Objektinis programavimas I (P175B118)",
+        student = Person("Bobby bob", Gender.MALE),
+        lecturer = Person("Alice alison", Gender.FEMALE),
+        sections = [
+            ReportSection("Introduction to containers"),
+            ReportSection("Now let's go to registers"),
+            ReportSection("Regex magic"),
+            ReportSection("Inheritence")
+        ]
+    )
 
+    ReportPDF.generate(example_report, "example-report.pdf")
 
 if __name__ == "__main__":
     main()
