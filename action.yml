@@ -25,21 +25,19 @@ runs:
       with:
         python-version: 3.x
     - name: Clone report generator
-      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v1.0.1
+      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v1.0.2
       shell: "bash"
-    - name: Setup report generator
+    - name: Generate report
       run: |
         cd ktu-oop-report-generator
         python -m venv venv
         source venv/bin/activate
         pip install -r requirements.txt
-      shell: "bash"
-    - name: Run report generator
-      run: |
-        cd ktu-oop-report-generator
-        source venv/bin/activate
         ./main.py ../${{ inputs.config-filename }} ../${{ inputs.output-filename }}
       env:
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      shell: "bash"
+    - name: Cleanup
+      run: rm -rf ktu-oop-report-generator
       shell: "bash"
 
