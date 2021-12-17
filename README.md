@@ -18,10 +18,13 @@ it would be better to finish making this library and make it public for anyone
 else if someone else wants to make a website. The library is licensed under 
 GNU GPLv3.
 
-**NOTE! This library only works on unix systems, because of how inputs
-from stdin are handled.** If you have a suggestion on how to make this process
+**DISCLAIMER! This works on unix systems only!** Keep reading to see why.
+
+This library only works on unix systems, because of how inputs
+from stdin are handled. If you have a suggestion on how to make this process
 cross-platform, I would be welcomed to implement it. But from by experience on
 trying to implement this, it was problematic.
+The method is called `ReportPDF.run_test` in [ktuoopreport/report_pdf.py](./ktuoopreport/report_pdf.py)
 
 ## Installation
 
