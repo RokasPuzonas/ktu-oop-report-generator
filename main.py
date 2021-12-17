@@ -42,7 +42,7 @@ def read_report_toml(filename: str) -> Report:
 
 @click.command()
 @click.argument("input", type=click.Path(exists=True, readable=True, dir_okay=False))
-@click.option("-o", "--output", required=False, type=click.Path(writable=True, dir_okay=False))
+@click.argument("output", required=False, type=click.Path(writable=True, dir_okay=False))
 def main(input: str, output: str):
     if not output:
         output = path.splitext(input)[0] + ".pdf"

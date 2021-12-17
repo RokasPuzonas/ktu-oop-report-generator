@@ -1,0 +1,43 @@
+name: "KTU OOP Report generator"
+description: "Generate a pdf report from a toml file"
+author: "Rokas Puzonas"
+
+inputs:
+  config-filename:
+    description: "Input toml filename"
+  output-filename:
+    description: "Output filename"
+    default: ""
+    optional: true
+  dotnet-version:
+    description: "Dotnet SDK version"
+    optional: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+    - name: Setup Python
+      uses: actions/setup-python@v2.3.1
+      with:
+        python-version: 3.x
+    - name: Clone report generator
+      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v1.0.0
+      shell: "bash"
+    - name: Setup report generator
+      run: |
+        cd ktu-oop-report-generator
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+      shell: "bash"
+    - name: Run report generator
+      run: |
+        cd ktu-oop-report-generator
+        source venv/bin/activate
+        ./main.py ../${{ inputs.config-filename }} ../${{ inputs.output-filename }}
+      shell: "bash"
+
