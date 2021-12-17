@@ -24,13 +24,19 @@ from fpdf.outline import OutlineSection
 import os
 import os.path as path
 import subprocess
+from subprocess import PIPE
 import contextlib
 import stat
+import sys
 from glob import glob
 from shutil import copytree, rmtree
 from PIL import Image, ImageFont, ImageDraw
 from datetime import date
 from tempfile import TemporaryDirectory
+import re
+import time
+
+import fcntl
 
 from .report import Report, ReportSection, Gender, ReportProject
 from .pdf import PDF
@@ -41,7 +47,6 @@ def pushd(new_dir):
     os.chdir(new_dir)
     yield
     os.chdir(previous_dir)
-
 
 current_year = date.today().year
 
@@ -69,6 +74,8 @@ def key_by_importance(_, filename: str) -> tuple[int, int]:
         rating = 6
     return rating, size
 
+ON_POSIX = 'posix' in sys.builtin_module_names
+
 class ReportPDF(PDF):
     report: Report
 
@@ -91,7 +98,7 @@ class ReportPDF(PDF):
     console_top_padding: int = 10
     console_bottom_padding: int = 10
 
-    builld_arguments: list[str] = ["--no-dependencies", "--nologo", "--no-restore", "/nowarn:netsdk1138"]
+    builld_arguments: list[str] = ["--no-dependencies", "--nologo", "/nowarn:netsdk1138"]
 
     project_files_sort = key_by_importance
 
@@ -231,7 +238,8 @@ class ReportPDF(PDF):
         self.line(width/2+self.font_size, y, width-self.r_margin, y) # type: ignore
         self.ln(self.font_size*2)
 
-        for i in range(len(self._get_people_from_report(report))):
+        people = self._get_people_from_report(report)
+        for i in range(len(people)):
             name, proffesion = people[i]
 
             self.set_font("times-new-roman", "B", 12)
@@ -374,7 +382,7 @@ class ReportPDF(PDF):
         Build C# project using dotnet cli and output it to given directory
         """
         cmd = ["dotnet", "build", project_root, "-o", output_directory, *self.builld_arguments]
-        process = subprocess.run(cmd, shell=False, capture_output=True)
+        process = subprocess.run(cmd, shell=False)
 
         # If failed to compile
         if process.returncode != 0:
@@ -445,10 +453,8 @@ class ReportPDF(PDF):
 
         return image
 
-    def render_test(self, executable: str, test_folder: str):
-        """
-        Render test case to the page
-        """
+    @staticmethod
+    def run_test(executable: str, test_folder: str):
         assert os.access(executable, os.X_OK), "Excpected to be able to run executable, insufficient permissions"
         assert path.isdir(test_folder), "Failed to verify that given test folder is a folder"
 
@@ -460,13 +466,66 @@ class ReportPDF(PDF):
         # copy current test files
         copytree(test_folder, working_directory, dirs_exist_ok=True)
 
-        # Run program
-        process = None
-        with pushd(working_directory):
-            command = "./"+path.basename(executable)
-            process = subprocess.run([command], shell=False, capture_output=True)
+        # Check if stdin is given
+        stdin_lines = []
+        stdin_file = path.join(working_directory, "stdin.txt")
+        if path.isfile(stdin_file):
+            with open(stdin_file, "r") as f:
+                stdin_lines = f.read().strip().splitlines()
+            os.remove(stdin_file)
 
-        # Render used test files
+        # Run program
+        # TODO: Add better error handling when executable crashes
+        with pushd(working_directory):
+            proc = subprocess.Popen(["./"+path.basename(executable)], bufsize=0, shell=False, universal_newlines=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+
+            # TODO: Refactor it's cross-platform.
+            # This so it dosen't use the fcntl library, because it's posix only.
+            # Available options to consider: threads, pexpect library.
+            if proc.stdout:
+                fcntl.fcntl(proc.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+
+            # TODO: Refactor reading of stdout so it's not relying on timings
+            # from time.sleep(0.1), because if the calculations of the executable
+            # take a long time this system will break.
+            stdout = ""
+            if proc.stdin:
+                for line in stdin_lines:
+                    if proc.poll() is not None:
+                        break
+
+                    time.sleep(0.1)
+                    if proc.stdout:
+                        try:
+                            stdout += proc.stdout.read()
+                        except IOError:
+                            pass
+                    proc.stdin.write(line + "\n")
+                    proc.stdin.flush()
+                    stdout += line + "\n"
+
+            proc.wait()
+            if proc.stdout:
+                try:
+                    stdout += proc.stdout.read()
+                except IOError:
+                    pass
+
+            return proc.returncode, stdout
+
+    def render_test(self, executable: str, test_folder: str):
+        """
+        Render test case to the page
+        """
+        assert os.access(executable, os.X_OK), "Excpected to be able to run executable, insufficient permissions"
+        assert path.isdir(test_folder), "Failed to verify that given test folder is a folder"
+
+        # Run program
+        errcode, stdout = ReportPDF.run_test(executable, test_folder)
+
+        working_directory = path.dirname(executable)
+
+        # Collect used test files
         files_to_render = []
         for root, _, files in os.walk(working_directory, topdown=True):
             for file in files:
@@ -485,7 +544,7 @@ class ReportPDF(PDF):
             self.unbreakable(self.render_file, content, self.file_label.format(filename=relpath))
         
         # Render console output
-        console_output = process.stdout.decode("UTF-8").strip()
+        console_output = stdout.strip()
         if len(console_output) > 0:
             console_image = self.create_console_image(console_output)
 
