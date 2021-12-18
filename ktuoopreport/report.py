@@ -18,7 +18,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 from enum import Enum
 
 class Gender(str, Enum):
@@ -51,7 +51,7 @@ class Person:
 class Report:
     title: str
 
-    student: Person
+    student: Union[Person, list[Person]]
     lecturer: Person
 
     sections: list[ReportSection] = field(default_factory=list)
@@ -59,5 +59,5 @@ class Report:
     tests_folder: str = field(default="tests")
 
     def __str__(self) -> str:
-        return f"Report[{self.student.name}, {self.title}]"
+        return f"Report[{self.title}]"
 

@@ -33,7 +33,6 @@ from shutil import copytree, rmtree
 from PIL import Image, ImageFont, ImageDraw
 from datetime import date
 from tempfile import TemporaryDirectory
-import re
 import time
 
 import fcntl
@@ -179,10 +178,15 @@ class ReportPDF(PDF):
     @staticmethod
     def _get_people_from_report(report: Report) -> list[tuple[str, str]]:
         people = []
-        if report.student.gender == Gender.MALE:
-            people.append((report.student.name, "Studentas"))
+        if isinstance(report.student, list):
+            for student in report.student:
+                gender = "Studentas" if student.gender == Gender.MALE else "Studentė"
+                people.append((student.name, gender))
         else:
-            people.append((report.student.name, "Studentė"))
+            if report.student.gender == Gender.MALE:
+                people.append((report.student.name, "Studentas"))
+            else:
+                people.append((report.student.name, "Studentė"))
 
         if report.lecturer.gender == Gender.MALE:
             people.append((report.lecturer.name, "Dėstytojas"))
