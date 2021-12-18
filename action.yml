@@ -25,7 +25,7 @@ runs:
       with:
         python-version: 3.x
     - name: Clone report generator
-      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v1.0.2
+      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v1.0.3
       shell: "bash"
     - name: Generate report
       run: |
@@ -33,7 +33,7 @@ runs:
         python -m venv venv
         source venv/bin/activate
         pip install -r requirements.txt
-        ./main.py ../${{ inputs.config-filename }} ../${{ inputs.output-filename }}
+        ./main.py "../${{ inputs.config-filename }}" "../${{ inputs.output-filename }}"
       env:
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
       shell: "bash"
