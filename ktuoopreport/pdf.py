@@ -1,5 +1,5 @@
 """
-    Copyright (C) 2021 - Rokas Puzonas <rokas.puz@gmail.com>
+    Copyright (C) 2022 - Rokas Puzonas <rokas.puz@gmail.com>
 
     This file is part of KTU OOP Report Generator.
 
@@ -88,7 +88,7 @@ class PDF(FPDF):
             level = "".join(str(lvl)+"." for lvl in self.section_levels[:-1])
             label = label.format(level = level, *args, **kvargs)
         super().start_section(label or "", len(self.section_levels)-2)
-    
+
     def pop_section(self):
         self.section_levels.pop()
         self.section_levels[-1] += 1
@@ -195,7 +195,7 @@ class PDF(FPDF):
             return
 
         DEFAULT_COLOR = (0, 0, 0)
-        
+
         self.set_text_color(*DEFAULT_COLOR)
         if not txt: return
 
@@ -243,4 +243,3 @@ class PDF(FPDF):
             self.set_y(y)
 
         super().cell(w, h, *args, **kwargs)
-

@@ -1,5 +1,5 @@
 """
-    Copyright (C) 2021 - Rokas Puzonas <rokas.puz@gmail.com>
+    Copyright (C) 2022 - Rokas Puzonas <rokas.puz@gmail.com>
 
     This file is part of KTU OOP Report Generator.
 
@@ -164,6 +164,7 @@ class ReportPDF(PDF):
                 self.add_section(
                         title = section.title,
                         problem = section.problem,
+                        lecturers_comment = section.lecturers_comment,
                         project_root = project_root,
                         tests_folder = tests_folder
                     )
@@ -224,7 +225,7 @@ class ReportPDF(PDF):
 
         self.set_font("times-new-roman", "B", 18)
         self.cell(0, txt=report.title, align="C", ln=True)
-        
+
         self.set_font("times-new-roman", "", 14)
         if self.sub_title:
             self.cell(0, txt=self.sub_title, align="C", ln=True)
@@ -280,7 +281,7 @@ class ReportPDF(PDF):
         Returns true if given directory contains a .csproj file
         """
         return path.isdir(project_root) and len(glob(path.join(project_root, "*.csproj"))) > 0
-    
+
     @staticmethod
     def list_project_files(project_root: str) -> list[str]:
         """
@@ -380,7 +381,7 @@ class ReportPDF(PDF):
                     os.remove(item)
                 elif path.isdir(item):
                     rmtree(item)
-    
+
     def build_project(self, project_root: str, output_directory: str) -> Optional[str]:
         """
         Build C# project using dotnet cli and output it to given directory
@@ -546,7 +547,7 @@ class ReportPDF(PDF):
             with open(file, "r", encoding="utf-8-sig") as f:
                 content = f.read().strip()
             self.unbreakable(self.render_file, content, self.file_label.format(filename=relpath))
-        
+
         # Render console output
         console_output = stdout.strip()
         if len(console_output) > 0:
@@ -728,4 +729,3 @@ class ReportPDF(PDF):
                 height += len(section.project.test_folders) * (subsection_text_height + margins)
 
         return height
-

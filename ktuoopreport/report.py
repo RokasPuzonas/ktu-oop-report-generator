@@ -1,5 +1,5 @@
 """
-    Copyright (C) 2021 - Rokas Puzonas <rokas.puz@gmail.com>
+    Copyright (C) 2022 - Rokas Puzonas <rokas.puz@gmail.com>
 
     This file is part of KTU OOP Report Generator.
 
@@ -60,4 +60,3 @@ class Report:
 
     def __str__(self) -> str:
         return f"Report[{self.title}]"
-
