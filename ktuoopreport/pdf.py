@@ -23,9 +23,10 @@ from pygments.token import Token
 from PIL import Image
 from fpdf import FPDF
 from pygments.styles import get_style_by_name
-from pygments.lexers import get_lexer_by_name
+from pygments.lexers import get_lexer_by_name, get_lexer_for_filename, guess_lexer
 from pygments.util import ClassNotFound
-from typing import Iterator, Union, Optional
+from typing import Union, Optional
+import contextlib
 
 class PDF(FPDF):
     line_spacing: float = 1.15
@@ -37,6 +38,12 @@ class PDF(FPDF):
     numbering_font_size: int
 
     section_levels: list[int]
+
+    image_numbering_label = "{index} pav. Konsolės išvestis"
+
+    numbering_font_family = "times-new-roman"
+    numbering_font_style = "I"
+    numbering_font_size = 12
 
     def __init__(self, *vargs, **kvargs):
         super().__init__(*vargs, **kvargs)
@@ -148,26 +155,6 @@ class PDF(FPDF):
             prev_value = value
 
         self.multi_cell(0, txt="".join(paragraph))
-        # # Altenative that supports bolding and italics
-        # # but can't do justify align.
-        # for ttype, value in self.markdown_lexer.get_tokens(text):
-        #     if ttype == Token.Keyword and value == "*":
-        #         self.write(txt="•")
-        #         self.x = self.x + self.get_string_width("•")
-        #         continue
-        #     elif ttype == Token.Generic.Emph:
-        #         old_style = self.font_style
-        #         self.set_font(style="I")
-        #         self.write(txt=value[1:-1])
-        #         self.set_font(style=old_style)
-        #         continue
-        #     elif ttype == Token.Generic.Strong:
-        #         old_style = self.font_style
-        #         self.set_font(style="B")
-        #         self.write(txt=value[2:-2])
-        #         self.set_font(style=old_style)
-        #         continue
-        #     self.write(txt=value)
 
     @staticmethod
     def hex_to_rgb(value: str) -> tuple[int, int, int]:
@@ -183,14 +170,27 @@ class PDF(FPDF):
             language: Optional[str] = None,
             style_name: Optional[str] = None
         ):
-        if not (language and style_name):
+        if not style_name:
             super().write(h, txt, link)
             return
 
         lexer = None
-        try:
-            lexer = get_lexer_by_name(language)
-        except ClassNotFound:
+
+        if language:
+            try:
+                lexer = get_lexer_by_name(language)
+            except ClassNotFound:
+                pass
+
+            if not lexer:
+                try:
+                    lexer = get_lexer_for_filename(language)
+                except ClassNotFound:
+                    pass
+        elif txt:
+            lexer = guess_lexer(txt)
+
+        if not lexer:
             super().write(h, txt, link)
             return
 
@@ -215,6 +215,38 @@ class PDF(FPDF):
             self.write(txt=value)
 
         self.set_text_color(*DEFAULT_COLOR)
+
+    @contextlib.contextmanager
+    def render_labeled(
+            self,
+            label: str,
+            label_family: str = None,
+            label_style: str = None,
+            label_size: int = None
+        ):
+        """
+        Render label above block
+        """
+        self.set_font(label_family, label_style, label_size)
+        self.cell(txt=label, ln=True)
+        self.ln()
+        yield
+        self.ln()
+
+    def render_file(
+            self,
+            content: str,
+            label: str,
+            style_name: Optional[str] = None,
+            language: Optional[str] = None
+        ):
+        """
+        Render a file's contents to the page, with optional syntax highlighting
+        """
+        with self.render_labeled(label, "times-new-roman", "", 12):
+            self.set_font("courier-new", "", 10)
+            self.write(txt=content, language=language, style_name=style_name)
+            self.ln()
 
     def get_page_width(self) -> float:
         return self.dw_pt/self.k
@@ -243,3 +275,16 @@ class PDF(FPDF):
             self.set_y(y)
 
         super().cell(w, h, *args, **kwargs)
+
+
+    def render_page_number(self) -> None:
+        """
+        Render page number at the bottom of the current page
+        """
+        self.set_font("times-new-roman", "", 12)
+        self.set_y(-self.font_size-self.b_margin) # type: ignore
+        self.cell(0, txt=str(self.page_no()), align="R")
+
+    def footer(self) -> None:
+        if self.page_no() > 1:
+            self.render_page_number()

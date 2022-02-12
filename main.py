@@ -8,7 +8,7 @@ from enum import Enum
 from dacite.core import from_dict
 from dacite.config import Config
 
-from ktuoopreport import Report, ReportPDF, Gender, Person, ReportSection
+from ktuoopreport import Report, ReportS1Generator, Gender, Person
 
 # TODO: Create a full report by just having a git repository url ant the configurations filename
 # TODO: Clear old build files, before rebuilding project.
@@ -35,8 +35,8 @@ def read_report_toml(filename: str) -> Report:
 
     base_directory = path.dirname(filename)
     for section in report.sections:
-        if section.project:
-            section.project = path.join(base_directory, section.project)
+        if "project" in section:
+            section["project"] = path.join(base_directory, section["project"])
 
     return report
 
@@ -50,7 +50,8 @@ def main(input: str, output: str):
     # Beware this method is devious. I can end the program with sys.exit
     report = read_report_toml(input)
 
-    ReportPDF.generate(report, output)
+    generator = ReportS1Generator()
+    generator.generate(report, output)
 
 def example():
     example_report = Report(

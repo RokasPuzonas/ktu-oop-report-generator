@@ -25,22 +25,22 @@ class Gender(str, Enum):
     MALE = "male"
     FEMALE = "female"
 
-@dataclass
-class ReportProject:
-    location: str
-    program_files: list[str]
-    test_folders: list[str]
+# @dataclass
+# class ReportProject:
+#     location: str
+#     program_files: list[str]
+#     test_folders: list[str]
 
-@dataclass
-class ReportSection:
-    title: str
-
-    problem: Optional[str] = None
-    project: Optional[str] = None
-    lecturers_comment: Optional[str] = None
-
-    def __str__(self) -> str:
-        return f"ReportSection[{self.title}]"
+# @dataclass
+# class ReportSection:
+#     title: str
+#
+#     problem: Optional[str] = None
+#     project: Optional[str] = None
+#     lecturers_comment: Optional[str] = None
+#
+#     def __str__(self) -> str:
+#         return f"ReportSection[{self.title}]"
 
 @dataclass
 class Person:
@@ -54,7 +54,8 @@ class Report:
     student: Union[Person, list[Person]]
     lecturer: Person
 
-    sections: list[ReportSection] = field(default_factory=list)
+    # sections: list[ReportSection] = field(default_factory=list)
+    sections: list[dict] = field(default_factory=list)
 
     tests_folder: str = field(default="tests")
 
