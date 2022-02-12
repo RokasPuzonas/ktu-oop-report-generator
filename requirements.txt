@@ -1,6 +1,6 @@
 click==8.0.3
 dacite==1.6.0
 fpdf2==2.4.6
-Pillow==8.4.0
+Pillow==9.0.0
 Pygments==2.10.0
 toml==0.10.2
