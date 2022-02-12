@@ -34,6 +34,7 @@ class ProjectTestsSection(SectionGenerator):
     test_label: str = "{level} {test_name} Testas"
     file_label: str = "{filename}:"
     console_label: str = "Konsolės išvestis:"
+    console_numbering_label: str = "{index} pav. Konsolės išvestis"
 
     builld_arguments: list[str] = ["--no-dependencies", "--nologo", "/nowarn:netsdk1138"]
 
@@ -53,8 +54,7 @@ class ProjectTestsSection(SectionGenerator):
 
     def generate(self, pdf: PDF, section: dict, report: Report):
         project_path = section[self.field]
-        tests_folder = report.tests_folder or self.tests_folder
-        tests_folder = path.join(project_path, tests_folder)
+        tests_folder = path.join(project_path, self.tests_folder)
 
         # If project dosen't have any tests, do nothing
         if not (tests_folder and ProjectTestsSection.has_subfolders(tests_folder)):
@@ -79,7 +79,7 @@ class ProjectTestsSection(SectionGenerator):
         # Cleanup build files
         build_directory.cleanup()
 
-    def render_test(self, pdf, executable: str, test_folder: str):
+    def render_test(self, pdf: PDF, executable: str, test_folder: str):
         """
         Render test case to the page
         """
@@ -91,15 +91,8 @@ class ProjectTestsSection(SectionGenerator):
 
         working_directory = path.dirname(executable)
 
-        # Collect used test files
-        files_to_render = []
-        for root, _, files in os.walk(working_directory, topdown=True):
-            for file in files:
-                fullpath = path.join(root, file)
-                if not path.samefile(fullpath, executable):
-                    files_to_render.append(fullpath)
-
-        # Sort by creation time
+        # Collect and sort used test files by creation time
+        files_to_render = dotnet.list_test_files(executable)
         files_to_render.sort(key=lambda file: os.stat(file).st_ctime)
 
         for file in files_to_render:
@@ -107,19 +100,27 @@ class ProjectTestsSection(SectionGenerator):
             content = None
             with open(file, "r", encoding="utf-8-sig") as f:
                 content = f.read().strip()
-            pdf.unbreakable(pdf.render_file, content, self.file_label.format(filename=relpath))
+            with pdf.unbreakable() as pdf: # type: ignore
+                self.print_file(pdf, content, self.file_label.format(filename=relpath))
 
         # Render console output
         console_output = stdout.strip()
         if len(console_output) > 0:
             console_image = self.create_console_image(console_output)
 
-            # TODO: REFACTOR THIS GARBAGE!!!
-            # Use a ContextManager instead
-            def render():
-                with pdf.render_labeled(self.console_label, "times-new-roman", "", 12):
-                    pdf.image(console_image, w=pdf.epw, numbered=pdf.image_numbering_label)
-            pdf.unbreakable(render)
+            pdf.set_font("times-new-roman", 12)
+            with pdf.unbreakable() as pdf: # type: ignore
+                pdf.print(self.console_label)
+                pdf.newline()
+                pdf.image(console_image, w=pdf.epw)
+                pdf.add_numbering(self.console_numbering_label)
+                pdf.newline()
+
+    def print_file(self, pdf: PDF, text: str, filename: str):
+        pdf.set_font("times-new-roman", 12)
+        with pdf.labeled_block(self.file_label.format(filename=filename)):
+            pdf.set_font("courier-new", 10)
+            pdf.print(text, multiline=True)
 
     def create_console_image(self, text: str):
         """

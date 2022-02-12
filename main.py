@@ -8,7 +8,7 @@ from enum import Enum
 from dacite.core import from_dict
 from dacite.config import Config
 
-from ktuoopreport import Report, ReportS1Generator, Gender, Person
+from ktuoopreport import Report, ReportGenerator1, Gender, Person
 
 # TODO: Create a full report by just having a git repository url ant the configurations filename
 # TODO: Clear old build files, before rebuilding project.
@@ -30,7 +30,7 @@ def read_report_toml(filename: str) -> Report:
         sys.exit(1)
     except Exception as e:
         click.echo(click.style(f"Validation error from input file ({filename}):", fg="red"))
-        click.echo(click.style(str(e), fg="red"))
+
         sys.exit(1)
 
     base_directory = path.dirname(filename)
@@ -50,24 +50,26 @@ def main(input: str, output: str):
     # Beware this method is devious. I can end the program with sys.exit
     report = read_report_toml(input)
 
-    generator = ReportS1Generator()
+    generator = ReportGenerator1()
     generator.generate(report, output)
 
 def example():
+    # Create example report with no projects
     example_report = Report(
         title = "Objektinis programavimas I (P175B118)",
         student = Person("Bobby bob", Gender.MALE),
         lecturer = Person("Alice alison", Gender.FEMALE),
         sections = [
-            ReportSection("Introduction to containers"),
-            ReportSection("Now let's go to registers"),
-            ReportSection("Regex magic"),
-            ReportSection("Inheritence")
+            { "title": "Introduction to containers" },
+            { "title": "Now let's go to registers" },
+            { "title": "Regex magic" },
+            { "title": "Inheritence" },
         ]
     )
 
-    ReportPDF.generate(example_report, "example-report.pdf")
+    # Generate the pdf (first semester format) and save it to "example-report.pdf"
+    generator = ReportGenerator1()
+    generator.generate(example_report, "example-report.pdf")
 
 if __name__ == "__main__":
     main()
-

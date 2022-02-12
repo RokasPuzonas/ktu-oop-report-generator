@@ -41,6 +41,13 @@ class ProjectSourceCodeSection(SectionGenerator):
         self.excluded_files = excluded_files
         self.sort_key = sort_key
 
+
+    def print_colored_file(self, pdf: PDF, filename: str, text: str):
+        pdf.set_font("times-new-roman", 12)
+        with pdf.labeled_block(self.file_label.format(filename=filename)):
+            pdf.set_font("courier-new", 10)
+            pdf.write_syntax_highlighted(text, self.theme, filename)
+
     def generate(self, pdf: PDF, section: dict, report: Report):
         project_path = section[self.field]
         project_files = self.list_project_files(project_path)
@@ -48,17 +55,12 @@ class ProjectSourceCodeSection(SectionGenerator):
             project_files.sort(key=self.sort_key)
 
         for filename in project_files:
-            content = None
+            text = None
             with open(filename, "r", encoding="utf-8-sig") as f:
-                content = f.read().strip()
+                text = f.read().strip()
 
             relpath = path.relpath(filename, project_path)
-            pdf.render_file(
-                    content,
-                    self.file_label.format(filename=relpath),
-                    self.theme,
-                    language=relpath
-                )
+            self.print_colored_file(pdf, relpath, text)
 
     def is_file_included(self, filename: str) -> bool:
         for pattern in self.included_files:
