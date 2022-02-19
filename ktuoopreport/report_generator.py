@@ -26,6 +26,7 @@ import sys
 from itertools import groupby
 from datetime import date
 from ktuoopreport.sections.class_diagram import ClassDiagramSection
+from ktuoopreport.sections.interface_scheme import InterfaceSchemeSection
 
 from ktuoopreport.sections.markdown import MarkdownSection
 from ktuoopreport.sections.project_source_code import ProjectSourceCodeSection
@@ -380,7 +381,7 @@ class ReportGenerator2(ReportGenerator):
     def __init__(self) -> None:
         super().__init__(sections=[
             SectionEntry(MarkdownSection("problem"), "Darbo užduotis"),
-            SectionEntry(MarkdownSection("filler!!!"), "Grafinės vartotojo sąsajos schema"),
+            SectionEntry(InterfaceSchemeSection("interface_scheme"), "Grafinės vartotojo sąsajos schema"),
             SectionEntry(UpdatedInterfacePropertiesSection(
                 "project",
                 included_files=["*.aspx"]
@@ -396,7 +397,7 @@ class ReportGenerator2(ReportGenerator):
                 included_files=["*.cs", "*.aspx"],
                 excluded_files=["*.designer.cs", "obj/**", "bin/**", "Properties/**"],
             ), "Programos tekstas"),
-            SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
+            # SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
             SectionEntry(MarkdownSection("lecturers_comment"), "Dėstytojo pastabos"),
         ])
 

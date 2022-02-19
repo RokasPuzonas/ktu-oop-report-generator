@@ -35,6 +35,8 @@ def read_report_toml(filename: str) -> Report:
     for section in report.sections:
         if "project" in section:
             section["project"] = path.join(base_directory, section["project"])
+        if "interface_scheme" in section:
+            section["interface_scheme"] = path.join(base_directory, section["interface_scheme"])
 
     return report
 
