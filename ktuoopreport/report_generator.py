@@ -30,6 +30,7 @@ from ktuoopreport.sections.class_diagram import ClassDiagramSection
 from ktuoopreport.sections.markdown import MarkdownSection
 from ktuoopreport.sections.project_source_code import ProjectSourceCodeSection
 from ktuoopreport.sections.project_tests import ProjectTestsSection
+from ktuoopreport.sections.updated_interface_properties import UpdatedInterfacePropertiesSection
 
 from .sections import SectionGenerator
 
@@ -380,7 +381,10 @@ class ReportGenerator2(ReportGenerator):
         super().__init__(sections=[
             SectionEntry(MarkdownSection("problem"), "Darbo užduotis"),
             SectionEntry(MarkdownSection("filler!!!"), "Grafinės vartotojo sąsajos schema"),
-            SectionEntry(MarkdownSection("filler!!!"), "Sąsajoje panaudotų komponentų keičiamos savybės"),
+            SectionEntry(UpdatedInterfacePropertiesSection(
+                "project",
+                included_files=["*.aspx"]
+            ), "Sąsajoje panaudotų komponentų keičiamos savybės"),
             SectionEntry(ClassDiagramSection(
                 "project",
                 included_files=["*.cs"],

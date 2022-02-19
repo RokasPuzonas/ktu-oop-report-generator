@@ -27,7 +27,7 @@ from fpdf.fpdf import ToCPlaceholder, DocumentState, FPDFRecorder
 from pygments.styles import get_style_by_name
 from pygments.lexers import get_lexer_by_name, get_lexer_for_filename
 from pygments.util import ClassNotFound
-from typing import Optional
+from typing import Literal, Optional
 import contextlib
 from dataclasses import dataclass, field
 
@@ -153,16 +153,19 @@ class PDF:
             text: str,
             w: float = 0,
             h: Optional[float] = None,
-            align: str = "",
-            multiline: bool = False
+            align: Literal["L"]|Literal["R"]|Literal["C"]|Literal["J"] = "L",
+            multiline: bool = False,
+            border: int = 0,
+            newlines: int = 0,
+            max_line_height: Optional[int] = 0
         ):
         if h is None:
             h = self.fpdf.font_size * self.line_spacing # type: ignore
 
         if multiline:
-            self.fpdf.multi_cell(w=w, h=h, txt=text, align=align)
+            self.fpdf.multi_cell(w=w, h=h, txt=text, align=align, border=border, ln=newlines, max_line_height=max_line_height)
         else:
-            self.fpdf.cell(w=w, h=h, txt=text, align=align)
+            self.fpdf.cell(w=w, h=h, txt=text, align=align, border=border, ln=newlines)
 
     # TODO: Create a more feature complete markdown writer
     # TODO: Feature: Only double \n\n create a \n
@@ -211,6 +214,10 @@ class PDF:
     @property
     def bottom_margin(self):
         return self.fpdf.b_margin
+
+    @property
+    def font_size(self) -> int:
+        return self.fpdf.font_size # type: ignore
 
     def get_y(self):
         return self.fpdf.y
