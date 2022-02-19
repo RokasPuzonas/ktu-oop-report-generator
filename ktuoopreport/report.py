@@ -39,7 +39,5 @@ class Report:
 
     sections: list[dict] = field(default_factory=list)
 
-    tests_folder: str = field(default="tests")
-
     def __str__(self) -> str:
         return f"Report[{self.title}]"

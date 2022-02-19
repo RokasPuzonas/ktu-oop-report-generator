@@ -24,6 +24,7 @@ from fpdf.outline import OutlineSection
 import os.path as path
 import sys
 from datetime import date
+from ktuoopreport.sections.class_diagram import ClassDiagramSection
 
 from ktuoopreport.sections.markdown import MarkdownSection
 from ktuoopreport.sections.project_source_code import ProjectSourceCodeSection
@@ -362,6 +363,27 @@ class ReportGenerator1(ReportGenerator):
                 ),
                 "Programos tekstas"
             ),
+            SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
+            SectionEntry(MarkdownSection("lecturers_comment"), "Dėstytojo pastabos"),
+        ])
+
+class ReportGenerator2(ReportGenerator):
+    def __init__(self) -> None:
+        super().__init__(sections=[
+            SectionEntry(MarkdownSection("problem"), "Darbo užduotis"),
+            SectionEntry(MarkdownSection("filler!!!"), "Grafinės vartotojo sąsajos schema"),
+            SectionEntry(MarkdownSection("filler!!!"), "Sąsajoje panaudotų komponentų keičiamos savybės"),
+            SectionEntry(ClassDiagramSection(
+                "project",
+                included_files=["*.cs"],
+                excluded_files=["obj/**", "bin/**", "Properties/**"],
+            ), "Klasių diagrama"),
+            SectionEntry(MarkdownSection("guide"), "Programos vartotojo vadovas"),
+            SectionEntry(ProjectSourceCodeSection(
+                "project", #sort_key=key_by_importance, # TODO: Remake sort key
+                included_files=["*.cs", "*.aspx", "*.aspx.cs"],
+                excluded_files=["obj/**", "bin/**", "Properties/**"],
+            ), "Programos tekstas"),
             SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
             SectionEntry(MarkdownSection("lecturers_comment"), "Dėstytojo pastabos"),
         ])
