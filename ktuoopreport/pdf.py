@@ -180,7 +180,7 @@ class PDF:
                 # self.write(txt=value)
                 # self.set_font(style="")
                 # self.multi_cell(0, txt="".join(paragraph))
-            if ttype == Token.Keyword and value == "*" and prev_value == "\n":
+            if ttype == Token.Keyword and value == "*" and (prev_value == "\n" or prev_value == ""):
                 paragraph.append("\n•")
             elif value == "\n" and prev_value == "\n":
                 paragraph.append("\n")
