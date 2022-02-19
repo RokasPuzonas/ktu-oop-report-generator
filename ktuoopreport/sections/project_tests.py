@@ -16,6 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
+from ..console_renderer import render_console
 from . import SectionGenerator
 from ..pdf import PDF
 from ..report import Report
@@ -23,12 +24,6 @@ from .. import dotnet
 from os import path
 import os
 from tempfile import TemporaryDirectory
-from PIL import Image, ImageFont, ImageDraw
-
-def hex_to_rgb(value: str) -> tuple[int, int, int]:
-    value = value.lstrip("#")
-    r, g, b = tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
-    return (r, g, b)
 
 class ProjectTestsSection(SectionGenerator):
     test_label: str = "{level} {test_name} Testas"
@@ -39,13 +34,7 @@ class ProjectTestsSection(SectionGenerator):
     builld_arguments: list[str] = ["--no-dependencies", "--nologo", "/nowarn:netsdk1138"]
 
     console_font_file: str = "fonts/consolas.ttf"
-    console_background: str = "#000000"
-    console_foreground: str = "#FFFFFF"
     console_font_size: int = 24
-    console_left_padding: int = 10
-    console_right_padding: int = 10
-    console_top_padding: int = 10
-    console_bottom_padding: int = 10
 
     def __init__(self, field: str, tests_folder: str = "tests") -> None:
         super().__init__()
@@ -106,7 +95,7 @@ class ProjectTestsSection(SectionGenerator):
         # Render console output
         console_output = stdout.strip()
         if len(console_output) > 0:
-            console_image = self.create_console_image(console_output)
+            console_image = render_console(console_output, self.console_font_file, self.console_font_size)
 
             pdf.set_font("times-new-roman", 12)
             with pdf.unbreakable() as pdf: # type: ignore
@@ -121,26 +110,6 @@ class ProjectTestsSection(SectionGenerator):
         with pdf.labeled_block(self.file_label.format(filename=filename)):
             pdf.set_font("courier-new", 10)
             pdf.print(text, multiline=True)
-
-    def create_console_image(self, text: str):
-        """
-        Render text to image
-        """
-        font = ImageFont.truetype(self.console_font_file, self.console_font_size)
-        w, h = font.getsize_multiline(text)
-
-        bg = hex_to_rgb(self.console_background)
-        fg = hex_to_rgb(self.console_foreground)
-
-        lp = self.console_left_padding
-        rp = self.console_right_padding
-        tp = self.console_top_padding
-        bp = self.console_bottom_padding
-        image = Image.new("RGB", (w + lp + rp, h + tp + bp), bg)
-        draw = ImageDraw.Draw(image)
-        draw.text((lp, tp), text, fill=fg, font=font)
-
-        return image
 
     def has_required_fields(self, section: dict, _: Report) -> bool:
         return self.field in section
