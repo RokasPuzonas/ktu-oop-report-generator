@@ -25,6 +25,8 @@ from typing import Literal, Optional
 
 # TODO: Merge diagrams with the same name into a single one
 
+TARGET_RATIO = 1.8
+
 class VisibilityEnum(Enum):
     Public = 1,
     Private = 2,
@@ -280,7 +282,7 @@ def place_images_into_square(
                 possible_packed_width = max(area[0] + image.width, packed_width)
                 possible_packed_height = max(area[1] + image.height, packed_height)
                 possible_ratio = possible_packed_width / possible_packed_height
-                if best_area_index == -1 or abs(1-possible_ratio) < abs(1-best_area_ratio):
+                if best_area_index == -1 or abs(TARGET_RATIO-possible_ratio) < abs(TARGET_RATIO-best_area_ratio):
                     best_area_ratio = possible_ratio
                     best_area_index = i
 
@@ -338,7 +340,7 @@ def find_best_image_placements_in_square(images: list[Image.Image], spacing: int
                 ratio = width/height
                 best_ratio = best_width/best_height
 
-                if best_image_positions == None or abs(1-ratio) < abs(1-best_ratio):
+                if best_image_positions == None or abs(TARGET_RATIO-ratio) < abs(TARGET_RATIO-best_ratio):
                     best_image_positions = image_positions
                     best_width = width
                     best_height = height
