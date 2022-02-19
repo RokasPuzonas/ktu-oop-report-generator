@@ -18,9 +18,12 @@
 """
 from enum import Enum
 from dataclasses import dataclass
+import math
 from PIL import Image, ImageFont, ImageDraw
-from math import ceil, floor
-from typing import Optional
+from math import floor
+from typing import Literal, Optional
+
+# TODO: Merge diagrams with the same name into a single one
 
 class VisibilityEnum(Enum):
     Public = 1,
@@ -63,6 +66,28 @@ class ClassDiagram:
     def __str__(self) -> str:
         return f"ClassDiagram({self.namespace}.{self.name})"
 
+@dataclass
+class EnumDiagram:
+    namespace: str
+    name: str
+    values: list[str]
+
+    def __str__(self) -> str:
+        return f"EnumDiagram({self.namespace}.{self.name})"
+
+
+"""
+def merge_same_diagrams(diagrams: list[EnumDiagram | ClassDiagram]):
+    grouped_diagrams = {}
+
+    for diagram in diagrams:
+        full_name = f"{diagram.namespace}.{diagram.name}"
+        if full_name not in grouped_diagrams:
+            grouped_diagrams[full_name] = []
+        grouped_diagrams[full_name].append(diagram)
+
+    # print(diagrams)
+"""
 
 def stringify_visibility(visibility: VisibilityEnum) -> str:
     if visibility == VisibilityEnum.Protected:
@@ -122,40 +147,32 @@ def stringify_class_methods(methods: list[ClassMethod]) -> list[str]:
 
     return method_lines
 
-def render_class_diagram(
-        diagram: ClassDiagram,
+def render_diagram_sections(
+        sections: list[list[str]],
         font_file: str,
         font_size: int,
-        background: str = "#FFFFFF",
-        foreground: str = "#000000",
-        padding: int = 10,
-        border_width: int = 5,
-        border_color: str = "#000000",
-        line_spacing: float = 1.20
+        background: str,
+        foreground: str,
+        padding: int,
+        border_width: int,
+        border_color: str,
+        line_spacing: float
     ) -> Image.Image:
-    line_height = font_size * line_spacing
 
     font = ImageFont.truetype(font_file, font_size)
-    attribute_lines = stringify_class_attributes(diagram.attributes)
-    method_lines = stringify_class_methods(diagram.methods)
 
-    # Append empty entry, so there is at least a section for methods and
-    # attributes even if there aren't any in the diagram
-    if len(attribute_lines) == 0:
-        attribute_lines.append("")
-    if len(method_lines) == 0:
-        method_lines.append("")
+    max_line_width = 0
+    for section in sections:
+        if len(section) > 0:
+            max_line_width = max(max_line_width, max(font.getlength(s) for s in section))
 
-    max_line_width = max(
-        max(font.getlength(s) for s in attribute_lines),
-        max(font.getlength(s) for s in method_lines),
-        font.getlength(diagram.name)
-    )
+    total_line_amount = sum(max(len(section), 1) for section in sections)
 
+    line_height = font_size * line_spacing
     total_width = 2*border_width + 2*padding + floor(max_line_width)
-
-    total_line_amount = len(attribute_lines) + len(method_lines) + 1
-    total_height = floor(total_line_amount*line_height + 4*border_width + 6*padding - 3*(font_size*(line_spacing-1)))
+    total_height = 2*border_width + \
+                   floor(total_line_amount*line_height - len(sections)*(font_size*(line_spacing-1))) + \
+                   len(sections)*(border_width+2*padding)
 
     # Create image and start drawing
     image = Image.new("RGB", (total_width, total_height), background)
@@ -168,29 +185,204 @@ def render_class_diagram(
     # Draw borders
     draw.rectangle((0, 0, total_width, total_height), outline=border_color, width=border_width)
 
-    # Draw class name
-    draw.text((cx, cy), diagram.name, fill=foreground, font=font)
+    # For each section...
+    for i in range(len(sections)):
+        section = sections[i]
 
-    # Draw seperator line
-    cy += padding + font_size + border_width/2
-    draw.line([(0, cy), (total_width-1, cy)], border_color, border_width)
+        # Draw all of it's entries line by line and...
+        for line in range(len(section)):
+            pos = (cx, cy+line*line_height)
+            draw.text(pos, section[line], fill=foreground, font=font)
 
-    # Draw attributes
-    cy += padding + border_width/2
-    for i in range(len(attribute_lines)):
-        draw.text((cx, cy+i*line_height), attribute_lines[i], fill=foreground, font=font)
+        cy += padding + max(len(section), 1)*line_height + border_width/2 - (font_size*(line_spacing-1))
 
-    # Draw seperator line
-    cy += padding + len(attribute_lines)*line_height + border_width/2 - (font_size*(line_spacing-1))
-    draw.line([(0, cy), (total_width-1, cy)], border_color, border_width)
+        # IF this isin't the last section, draw a seperating line
+        if i != len(sections)-1:
+            draw.line([(0, cy), (total_width-1, cy)], border_color, border_width)
 
-    # Draw methods
-    cy += padding + border_width/2
-    for i in range(len(method_lines)):
-        draw.text((cx, cy+i*line_height), method_lines[i], fill=foreground, font=font)
+        cy += padding + border_width/2
 
     return image
 
-# def render_class_diagrams(diagrams: list[ClassDiagram]) -> Image.Image:
-    # image = Image.new("RGB", (100, 100), self.diagram_background)
-    # return image
+def render_class_diagram(
+        diagram: ClassDiagram,
+        font_file: str,
+        font_size: int,
+        background: str = "#FFFFFF",
+        foreground: str = "#000000",
+        padding: int = 10,
+        border_width: int = 5,
+        border_color: str = "#000000",
+        line_spacing: float = 1.20
+    ) -> Image.Image:
+    sections = []
+
+    sections.append([diagram.name])
+    sections.append(stringify_class_attributes(diagram.attributes))
+    sections.append(stringify_class_methods(diagram.methods))
+
+    return render_diagram_sections(
+        sections,
+        font_file, font_size, background, foreground, padding, border_width,
+        border_color, line_spacing
+    )
+
+def render_enum_diagram(
+        diagram: EnumDiagram,
+        font_file: str,
+        font_size: int,
+        background: str = "#FFFFFF",
+        foreground: str = "#000000",
+        padding: int = 10,
+        border_width: int = 5,
+        border_color: str = "#000000",
+        line_spacing: float = 1.20
+    ) -> Image.Image:
+    sections = []
+
+    sections.append([diagram.name])
+    values_section = []
+    for value in diagram.values:
+        values_section.append(f"+ {value}")
+    sections.append(values_section)
+
+    return render_diagram_sections(
+        sections,
+        font_file, font_size, background, foreground, padding, border_width,
+        border_color, line_spacing
+    )
+
+def place_images_into_square(
+        images: list[Image.Image],
+        spacing: int,
+        sort_key,
+        cut: Literal["vertical"]|Literal["horizontal"] = "vertical",
+        reverse_cut: bool = False
+    ) -> tuple[list[tuple[float, float, Image.Image]], float, float]:
+    images.sort(key=sort_key, reverse=True)
+
+    available_areas = [(0.0, 0.0, math.inf, math.inf)]
+    image_positions: list[tuple[float, float, Image.Image]] = []
+    packed_width = 0.0
+    packed_height = 0.0
+
+    for image in images:
+        best_area_index = -1
+        best_area_ratio = 0
+
+        # Find which available area is most sutable for image to be placed in,
+        # so that the packed images would be in a square
+        for i in range(len(available_areas)):
+            area = available_areas[i]
+            area_width = area[2] - area[0]
+            area_height = area[3] - area[1]
+            if image.width <= area_width and image.height <= area_height:
+                possible_packed_width = max(area[0] + image.width, packed_width)
+                possible_packed_height = max(area[1] + image.height, packed_height)
+                possible_ratio = possible_packed_width / possible_packed_height
+                if best_area_index == -1 or abs(1-possible_ratio) < abs(1-best_area_ratio):
+                    best_area_ratio = possible_ratio
+                    best_area_index = i
+
+        assert best_area_index > -1
+
+        # When a sutable area has been found, save a position where the image
+        # would be placed, and cut up the area so the next image placement
+        # don't overlap already placed image
+        left, top, right, bottom = available_areas.pop(best_area_index)
+        image_positions.append((left, top, image))
+
+        packed_width = max(left + image.width, packed_width)
+        packed_height = max(top + image.height, packed_height)
+
+        new_area_1 = None
+        new_area_2 = None
+        if cut == "vertical":
+            new_area_1 = (left+image.width+spacing, top, right, bottom)
+            new_area_2 = (left, top+image.height+spacing, left + image.width, bottom)
+        else:
+            new_area_1 = (left, top+image.height + spacing, right, bottom)
+            new_area_2 = (left + image.width + spacing, top, right, top + image.height)
+
+        if reverse_cut:
+            available_areas.append(new_area_1)
+            available_areas.append(new_area_2)
+        else:
+            available_areas.append(new_area_2)
+            available_areas.append(new_area_1)
+
+    return (image_positions, packed_width, packed_height)
+
+def find_best_image_placements_in_square(images: list[Image.Image], spacing: int) -> tuple[list[tuple[float, float, Image.Image]], float, float]:
+    possible_sort_keys = [
+        lambda image: image.height*image.width,
+        lambda image: image.height,
+        lambda image: image.width
+    ]
+
+    best_image_positions = []
+    best_width = 0.0
+    best_height = 1.0
+
+    for sort_key in possible_sort_keys:
+        for cut in ("vertical", "horizontal"):
+            for reverse_cut in (False, True):
+                image_positions, width, height = place_images_into_square(
+                    images,
+                    spacing,
+                    sort_key,
+                    cut, # type: ignore
+                    reverse_cut
+                )
+
+                ratio = width/height
+                best_ratio = best_width/best_height
+
+                if best_image_positions == None or abs(1-ratio) < abs(1-best_ratio):
+                    best_image_positions = image_positions
+                    best_width = width
+                    best_height = height
+
+    return (best_image_positions, best_width, best_height)
+
+# Because the area into which there images are being packed is unbounded,
+# I picked a criteria so that it tries to create a packed image which is as
+# close a square as possible.
+def pack_images(images: list[Image.Image], background: str, spacing: int=0) -> Image.Image:
+    image_positions, width, height = find_best_image_placements_in_square(images, spacing)
+
+    packed_image = Image.new("RGB", (int(width), int(height)), background)
+
+    for x, y, image in image_positions:
+        packed_image.paste(image, (int(x), int(y)))
+
+    return packed_image
+
+def render_diagrams(
+        diagrams: list[ClassDiagram | EnumDiagram],
+        font_file: str,
+        font_size: int,
+        background: str = "#FFFFFF",
+        foreground: str = "#000000",
+        diagram_padding: int = 10,
+        border_width: int = 5,
+        border_color: str = "#000000",
+        line_spacing: float = 1.20,
+        diagram_spacing: int = 25
+    ) -> Image.Image:
+    rendered_diagrams: list[Image.Image] = []
+    for diagram in diagrams:
+        renderer = None
+        if isinstance(diagram, ClassDiagram):
+            renderer = render_class_diagram
+        elif isinstance(diagram, EnumDiagram):
+            renderer = render_enum_diagram
+        else:
+            continue
+
+        rendered_diagrams.append(renderer(diagram, # type: ignore
+            font_file, font_size, background, foreground, diagram_padding, border_width,
+            border_color, line_spacing
+        ))
+
+    return pack_images(rendered_diagrams, background, diagram_spacing)

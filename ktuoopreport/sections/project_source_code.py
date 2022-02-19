@@ -16,12 +16,11 @@
     You should have received a copy of the GNU General Public License
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
+from ..utils import list_files
 from ..report import Report
 from . import SectionGenerator
 from ..pdf import PDF
 import os.path as path
-import os
-import fnmatch
 
 from .. import dotnet
 
@@ -50,7 +49,7 @@ class ProjectSourceCodeSection(SectionGenerator):
 
     def generate(self, pdf: PDF, section: dict, report: Report):
         project_path = section[self.field]
-        project_files = self.list_project_files(project_path)
+        project_files = list(list_files(project_path, self.included_files, self.excluded_files))
         if self.sort_key:
             project_files.sort(key=self.sort_key)
 
@@ -61,31 +60,6 @@ class ProjectSourceCodeSection(SectionGenerator):
 
             relpath = path.relpath(filename, project_path)
             self.print_colored_file(pdf, relpath, text)
-
-    def is_file_included(self, filename: str) -> bool:
-        for pattern in self.included_files:
-            if not fnmatch.fnmatch(filename, pattern):
-                return False
-
-        for pattern in self.excluded_files:
-            if fnmatch.fnmatch(filename, pattern):
-                return False
-
-        return True
-
-    def list_project_files(self, project_path: str) -> list[str]:
-        """
-        Retrieve a list of source code files from given C# project root directory.
-        """
-        project_files = []
-
-        for (root, _, files) in os.walk(project_path, topdown=True):
-            for name in files:
-                full_path = path.join(root, name)
-                if self.is_file_included(path.relpath(full_path, project_path)):
-                    project_files.append(full_path)
-
-        return project_files
 
     def has_required_fields(self, section: dict, _: Report) -> bool:
         return self.field in section

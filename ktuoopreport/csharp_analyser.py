@@ -20,7 +20,7 @@ from typing import Iterable, Optional
 from lark.lark import Lark
 from lark.lexer import Token
 from lark.tree import ParseTree, Tree
-from .class_diagram import VisibilityEnum, ParameterDirection, ClassAttribute, ClassMethodParameter, ClassMethod, ClassDiagram
+from .class_diagram import EnumDiagram, VisibilityEnum, ParameterDirection, ClassAttribute, ClassMethodParameter, ClassMethod, ClassDiagram
 
 # NOTE: This parser assumes that the c# file has not syntax errors.
 # Because I am not validating if something looks logical or not.
@@ -32,8 +32,7 @@ from .class_diagram import VisibilityEnum, ParameterDirection, ClassAttribute, C
 l = Lark(r"""
     start: namespace_import* namespace_definition
 
-    IDENTIFIER_NAME: /[a-zA-Z0-9_]+/
-    // type_name: /[a-zA-Z0-9_\.<>,\[\]]+/
+    IDENTIFIER_NAME: /[a-zA-Z0-9_\.]+/
     !type_name: IDENTIFIER_NAME
              | IDENTIFIER_NAME "[" ","* "]"
              | IDENTIFIER_NAME "<" (type_name ",")* type_name ">"
@@ -42,20 +41,22 @@ l = Lark(r"""
 
     ANY_VALUE: /.+/
 
-    namespace_import: "using" NAMESPACE_NAME ";"
-    NAMESPACE_NAME: /[a-zA-Z0-9_\.]+/
+    namespace_import: "using" IDENTIFIER_NAME ";"
 
-    namespace_definition: "namespace" NAMESPACE_NAME "{" namespace_block "}"
-    namespace_block: class_definition+
+    namespace_definition: "namespace" IDENTIFIER_NAME "{" namespace_block "}"
+    namespace_block: (class_definition | enum_definition)*
 
     VISIBILITY: "private" | "public" | "protected"
-
-    class_definition.2: modifier? "class" IDENTIFIER_NAME "{" class_block "}"
-    class_block: [method | attribute]+
     modifier: (VISIBILITY | "static")~1..2
 
+    enum_definition.2: modifier? "enum" IDENTIFIER_NAME [":" IDENTIFIER_NAME] "{" enum_block? "}"
+    enum_block: (IDENTIFIER_NAME ",")* IDENTIFIER_NAME
+
+    class_definition.2: modifier? "partial"? "class" IDENTIFIER_NAME [":" IDENTIFIER_NAME] "{" class_block "}"
+    class_block: (method | attribute)*
+
     attribute.2: modifier? type_name IDENTIFIER_NAME (("=" ATTRIBUTE_VALUE) | ";")
-             | modifier type_name IDENTIFIER_NAME "{ get; set; }" ["=" ATTRIBUTE_VALUE]
+             | modifier type_name IDENTIFIER_NAME "{ " VISIBILITY? "get;" VISIBILITY? "set; }" ["=" ATTRIBUTE_VALUE]
     ATTRIBUTE_VALUE: /.+/ ";"
 
     method.2: modifier? "override"? return_type? IDENTIFIER_NAME "(" method_parameters? ")" "{" _METHOD_BLOCK* "}"
@@ -87,7 +88,7 @@ def find_direct_child_rule(tree: ParseTree, token: str) -> Optional[ParseTree]:
 
 def find_namespace_names(tree: ParseTree) -> Iterable[tuple[ParseTree, str]]:
     for namespace_node in tree.find_data("namespace_definition"):
-        name = find_direct_child_token(namespace_node, "NAMESPACE_NAME")
+        name = find_direct_child_token(namespace_node, "IDENTIFIER_NAME")
         assert name
         yield (namespace_node, name.value)
 
@@ -193,11 +194,37 @@ def find_class_diagrams(tree: ParseTree) -> Iterable[ClassDiagram]:
                 methods = list(find_methods(class_node))
             )
 
-def extract_class_diagrams(filename: str) -> list[ClassDiagram]:
+def find_enum_names(tree: ParseTree) -> Iterable[tuple[ParseTree, str]]:
+    for enum_node in tree.find_data("enum_definition"):
+        name = find_direct_child_token(enum_node, "IDENTIFIER_NAME")
+        assert name
+        yield (enum_node, name.value)
+
+def find_enum_diagrams(tree: ParseTree) -> Iterable[EnumDiagram]:
+    for (namespace_node, namespace_name) in find_namespace_names(tree):
+        for (enum_node, enum_name) in find_enum_names(namespace_node):
+            enum_block = find_direct_child_rule(enum_node, "enum_block")
+            assert enum_block
+
+            values = []
+            for value_node in enum_block.children:
+                assert isinstance(value_node, Token)
+                values.append(value_node.value)
+
+            yield EnumDiagram(
+                namespace = namespace_name,
+                name = enum_name,
+                values = values
+            )
+
+def extract_diagrams(filename: str) -> list[ClassDiagram | EnumDiagram]:
     contents = None
     with open(filename, "r") as f:
         contents = f.read()
     assert contents
 
     tree = l.parse(contents)
-    return list(find_class_diagrams(tree))
+    diagrams = []
+    diagrams.extend(find_class_diagrams(tree))
+    diagrams.extend(find_enum_diagrams(tree))
+    return diagrams
