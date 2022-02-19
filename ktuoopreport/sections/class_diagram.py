@@ -16,9 +16,13 @@
     You should have received a copy of the GNU General Public License
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
+from ..utils import list_files
+from ..csharp_analyser import extract_diagrams
+from ..class_diagram import render_diagrams
 from ..report import Report
 from . import SectionGenerator
 from ..pdf import PDF
+
 
 class ClassDiagramSection(SectionGenerator):
     diagram_font_file: str = "fonts/arial.ttf"
@@ -35,15 +39,18 @@ class ClassDiagramSection(SectionGenerator):
         self.excluded_files = excluded_files
 
     def generate(self, pdf: PDF, section: dict, report: Report):
-        pass
-        # pdf.set_font("times-new-roman", 12)
-        # pdf.write_markdown(section[self.field])
-        # pdf.newline()
+        diagrams = []
+        for filename in list_files(section["project"], self.included_files, self.excluded_files):
+            for diagram in extract_diagrams(filename):
+                diagrams.append(diagram)
+
+        rendered_diagrams = render_diagrams(diagrams, self.diagram_font_file, self.diagram_font_size)
+        pdf.newline()
+        pdf.image(rendered_diagrams, w=pdf.epw)
+        pdf.newline()
 
     def has_required_fields(self, section: dict, report: Report) -> bool:
-        return False
-        # return self.field in section
+        return self.field in section
 
     def assert_fields(self, section: dict, report: Report):
-        pass
-        # assert type(section.get(self.field)) == str, f"Expected field '{self.field}' in section to be str"
+        assert type(section.get(self.field)) == str, f"Expected field '{self.field}' in section to be str"

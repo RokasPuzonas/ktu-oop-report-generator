@@ -32,14 +32,13 @@ class ProjectSourceCodeSection(SectionGenerator):
             field: str,
             included_files: list[str],
             excluded_files: list[str]=[],
-            sort_key=None
+            sort_files=None
         ) -> None:
         super().__init__()
         self.field = field
         self.included_files = included_files
         self.excluded_files = excluded_files
-        self.sort_key = sort_key
-
+        self.sort_files = sort_files
 
     def print_colored_file(self, pdf: PDF, filename: str, text: str):
         pdf.set_font("times-new-roman", 12)
@@ -50,8 +49,8 @@ class ProjectSourceCodeSection(SectionGenerator):
     def generate(self, pdf: PDF, section: dict, report: Report):
         project_path = section[self.field]
         project_files = list(list_files(project_path, self.included_files, self.excluded_files))
-        if self.sort_key:
-            project_files.sort(key=self.sort_key)
+        if self.sort_files:
+            project_files = self.sort_files(project_files)
 
         for filename in project_files:
             text = None

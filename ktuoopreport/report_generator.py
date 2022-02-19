@@ -23,6 +23,7 @@ from fpdf.fpdf import TitleStyle
 from fpdf.outline import OutlineSection
 import os.path as path
 import sys
+from itertools import groupby
 from datetime import date
 from ktuoopreport.sections.class_diagram import ClassDiagramSection
 
@@ -36,24 +37,6 @@ from .report import Report, Gender
 from .pdf import PDF, FontStyle
 
 current_year = date.today().year
-
-# Sort by 2 keys: csharp file type, character count
-# 1. A register class is more important than an enum
-# 2. A longer file is probably more important also
-def key_by_importance(filename: str) -> tuple[int, int]:
-    """
-    Returns a tuple with the rating and size of given project file
-    """
-    rating = 0
-    size = path.getsize(filename)
-    filename = filename.lower()
-    if "program" in filename:
-        rating = 10
-    elif "register" in filename:
-        rating = 8
-    elif "container" in filename:
-        rating = 6
-    return rating, size
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -357,7 +340,7 @@ class ReportGenerator1(ReportGenerator):
             SectionEntry(MarkdownSection("problem"), "Darbo užduotis"),
             SectionEntry(
                 ProjectSourceCodeSection(
-                    "project", sort_key=key_by_importance,
+                    "project", sort_files=ReportGenerator1.sort_source_code_files,
                     included_files=["*.cs"],
                     excluded_files=["obj/**", "bin/**", "Properties/**"],
                 ),
@@ -366,6 +349,31 @@ class ReportGenerator1(ReportGenerator):
             SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
             SectionEntry(MarkdownSection("lecturers_comment"), "Dėstytojo pastabos"),
         ])
+
+    @staticmethod
+    def sort_source_code_files(files: list[str]):
+        files.sort(key=ReportGenerator1.source_code_sort_key)
+
+        return files
+
+    @staticmethod
+    def source_code_sort_key(filename: str) -> tuple[int, int]:
+        """
+        Returns a tuple with the rating and size of given project file
+            Sort by 2 keys: csharp file type, character count
+            1. A register class is more important than an enum
+            2. A longer file is probably more important also
+        """
+        rating = 0
+        size = path.getsize(filename)
+        filename = filename.lower()
+        if "program" in filename:
+            rating = 10
+        elif "register" in filename:
+            rating = 8
+        elif "container" in filename:
+            rating = 6
+        return rating, size
 
 class ReportGenerator2(ReportGenerator):
     def __init__(self) -> None:
@@ -376,14 +384,56 @@ class ReportGenerator2(ReportGenerator):
             SectionEntry(ClassDiagramSection(
                 "project",
                 included_files=["*.cs"],
-                excluded_files=["obj/**", "bin/**", "Properties/**"],
+                excluded_files=["*.designer.cs", "obj/**", "bin/**", "Properties/**"],
             ), "Klasių diagrama"),
             SectionEntry(MarkdownSection("guide"), "Programos vartotojo vadovas"),
             SectionEntry(ProjectSourceCodeSection(
-                "project", #sort_key=key_by_importance, # TODO: Remake sort key
-                included_files=["*.cs", "*.aspx", "*.aspx.cs"],
-                excluded_files=["obj/**", "bin/**", "Properties/**"],
+                "project", sort_files=ReportGenerator2.sort_source_code_files,
+                included_files=["*.cs", "*.aspx"],
+                excluded_files=["*.designer.cs", "obj/**", "bin/**", "Properties/**"],
             ), "Programos tekstas"),
             SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
             SectionEntry(MarkdownSection("lecturers_comment"), "Dėstytojo pastabos"),
         ])
+
+    @staticmethod
+    def sort_source_code_files(files: list[str]) -> list[str]:
+        regular_files = []
+        aspx_files = []
+
+        for filename in files:
+            if ".aspx" in filename:
+                aspx_files.append(filename)
+            else:
+                regular_files.append(filename)
+
+        regular_files.sort(key=ReportGenerator2.source_code_sort_key)
+        aspx_files.sort()
+
+        new_files = []
+
+        new_files.extend(regular_files)
+        new_files.extend(aspx_files)
+
+        return new_files
+
+    @staticmethod
+    def source_code_sort_key(filename: str) -> tuple[int, int]:
+        """
+        Returns a tuple with the rating and size of given project file
+            Sort by 2 keys: csharp file type, character count
+            1. A register class is more important than an enum
+            2. A longer file is probably more important also
+        """
+        tier = 0
+        size = path.getsize(filename)
+        filename = filename.lower()
+        if "program" in filename:
+            tier = 4
+        elif "utils" in filename:
+            tier = 3
+        elif "register" in filename:
+            tier = 2
+        elif "container" in filename:
+            tier = 1
+        return tier, size

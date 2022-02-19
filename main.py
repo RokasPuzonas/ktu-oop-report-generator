@@ -4,16 +4,15 @@ import sys
 import toml
 import os.path as path
 from enum import Enum
+from typing import Optional
 
 from dacite.core import from_dict
 from dacite.config import Config
 
-from ktuoopreport import Report, ReportGenerator1, Gender, Person
+from ktuoopreport import Report, Gender, Person, ReportGenerator1, ReportGenerator2
+from ktuoopreport.report_generator import ReportGenerator
 
-# TODO: Create a full report by just having a git repository url ant the configurations filename
-# TODO: Clear old build files, before rebuilding project.
 # TODO: Add support for loading program descriptions from individual README files
-# TODO: Support loading project from git urls
 
 def read_report_toml(filename: str) -> Report:
     report = None
@@ -30,7 +29,6 @@ def read_report_toml(filename: str) -> Report:
         sys.exit(1)
     except Exception as e:
         click.echo(click.style(f"Validation error from input file ({filename}):", fg="red"))
-
         sys.exit(1)
 
     base_directory = path.dirname(filename)
@@ -39,6 +37,12 @@ def read_report_toml(filename: str) -> Report:
             section["project"] = path.join(base_directory, section["project"])
 
     return report
+
+def determine_generator_from_report(report: Report) -> Optional[ReportGenerator]:
+    if "(P175B118)" in report.title:
+        return ReportGenerator1()
+    elif "(P175B123)" in report.title:
+        return ReportGenerator2()
 
 @click.command()
 @click.argument("input", type=click.Path(exists=True, readable=True, dir_okay=False))
@@ -50,7 +54,11 @@ def main(input: str, output: str):
     # Beware this method is devious. I can end the program with sys.exit
     report = read_report_toml(input)
 
-    generator = ReportGenerator1()
+    generator = determine_generator_from_report(report)
+    if not generator:
+        click.echo(click.style("Couldn't determine which generator to use", fg="red"))
+        click.echo(click.style("Report title must include '(P175B118)' or '(P175B123)'", fg="red"))
+        sys.exit(1)
     generator.generate(report, output)
 
 def example():

@@ -4,13 +4,11 @@ from fnmatch import fnmatch
 from typing import Iterable
 
 def is_file_included(filename: str, included: list[str], excluded: list[str]) -> bool:
-    for pattern in included:
-        if not fnmatch(filename, pattern):
-            return False
+    if not any(fnmatch(filename, pattern) for pattern in included):
+        return False
 
-    for pattern in excluded:
-        if fnmatch(filename, pattern):
-            return False
+    if any(fnmatch(filename, pattern) for pattern in excluded):
+        return False
 
     return True
 
