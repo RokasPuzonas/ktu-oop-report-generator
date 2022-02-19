@@ -78,7 +78,6 @@ class EnumDiagram:
         return f"EnumDiagram({self.namespace}.{self.name})"
 
 
-"""
 def merge_same_diagrams(diagrams: list[EnumDiagram | ClassDiagram]):
     grouped_diagrams = {}
 
@@ -88,8 +87,14 @@ def merge_same_diagrams(diagrams: list[EnumDiagram | ClassDiagram]):
             grouped_diagrams[full_name] = []
         grouped_diagrams[full_name].append(diagram)
 
-    # print(diagrams)
-"""
+    for key in grouped_diagrams.keys():
+        if len(grouped_diagrams[key]) > 1:
+            group: list[ClassDiagram] = grouped_diagrams[key]
+            first_diagram = group[0]
+            for other_diagram in group[1:]:
+                first_diagram.methods.extend(other_diagram.methods)
+                first_diagram.attributes.extend(other_diagram.attributes)
+                diagrams.remove(other_diagram)
 
 def stringify_visibility(visibility: VisibilityEnum) -> str:
     if visibility == VisibilityEnum.Protected:

@@ -219,7 +219,7 @@ def find_enum_diagrams(tree: ParseTree) -> Iterable[EnumDiagram]:
 
 def extract_diagrams(filename: str) -> list[ClassDiagram | EnumDiagram]:
     contents = None
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8-sig") as f:
         contents = f.read()
     assert contents
 

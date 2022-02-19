@@ -18,7 +18,7 @@
 """
 from ..utils import list_files
 from ..csharp_analyser import extract_diagrams
-from ..class_diagram import render_diagrams
+from ..class_diagram import merge_same_diagrams, render_diagrams
 from ..report import Report
 from . import SectionGenerator
 from ..pdf import PDF
@@ -27,6 +27,7 @@ from ..pdf import PDF
 class ClassDiagramSection(SectionGenerator):
     diagram_font_file: str = "fonts/arial.ttf"
     diagram_font_size: int = 32
+    merge_same_diagrams: bool = False
 
     def __init__(self,
             field: str,
@@ -43,6 +44,9 @@ class ClassDiagramSection(SectionGenerator):
         for filename in list_files(section["project"], self.included_files, self.excluded_files):
             for diagram in extract_diagrams(filename):
                 diagrams.append(diagram)
+
+        if self.merge_same_diagrams:
+            merge_same_diagrams(diagrams)
 
         rendered_diagrams = render_diagrams(diagrams, self.diagram_font_file, self.diagram_font_size)
         pdf.newline()
