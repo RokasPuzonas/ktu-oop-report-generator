@@ -181,3 +181,6 @@ def list_test_files(executable: str) -> list[str]:
                 test_files.append(fullpath)
 
     return test_files
+
+def is_web_project(project_path: str):
+    return path.isdir(project_path) and path.exists(path.join(project_path, "Web.config"))

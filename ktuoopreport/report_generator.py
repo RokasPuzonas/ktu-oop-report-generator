@@ -397,7 +397,7 @@ class ReportGenerator2(ReportGenerator):
                 included_files=["*.cs", "*.aspx"],
                 excluded_files=["*.designer.cs", "obj/**", "bin/**", "Properties/**"],
             ), "Programos tekstas"),
-            # SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
+            SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
             SectionEntry(MarkdownSection("lecturers_comment"), "Dėstytojo pastabos"),
         ])
 

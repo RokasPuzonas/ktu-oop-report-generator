@@ -16,6 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
+from glob import glob
 from ..console_renderer import render_console
 from . import SectionGenerator
 from ..pdf import PDF
@@ -49,6 +50,12 @@ class ProjectTestsSection(SectionGenerator):
         if not (tests_folder and ProjectTestsSection.has_subfolders(tests_folder)):
             return
 
+        if dotnet.is_web_project(project_path):
+            self.generate_static(pdf, tests_folder)
+        else:
+            self.generate_dynamic(pdf, project_path, tests_folder)
+
+    def generate_dynamic(self, pdf: PDF, project_path: str, tests_folder: str):
         # Build project
         build_directory = TemporaryDirectory()
         executable = dotnet.build_project(project_path, build_directory.name, self.builld_arguments)
@@ -68,6 +75,21 @@ class ProjectTestsSection(SectionGenerator):
         # Cleanup build files
         build_directory.cleanup()
 
+    def generate_static(self, pdf: PDF, tests_folder: str):
+        # Get folders in which there are test cases
+        tests = ProjectTestsSection.list_subfolders(tests_folder)
+        tests.sort()
+
+        for i in range(len(tests)):
+            test_folder = tests[i]
+            test_name = path.relpath(test_folder, tests_folder)
+            with pdf.section_block(self.test_label, test_index = i + 1, test_name = test_name):
+                input_dir = path.join(test_folder, "inputs")
+                self.print_files(pdf, glob(f"{input_dir}/**"), input_dir)
+
+                output_dir = path.join(test_folder, "outputs")
+                self.print_files(pdf, glob(f"{output_dir}/**"), output_dir)
+
     def render_test(self, pdf: PDF, executable: str, test_folder: str):
         """
         Render test case to the page
@@ -84,13 +106,7 @@ class ProjectTestsSection(SectionGenerator):
         files_to_render = dotnet.list_test_files(executable)
         files_to_render.sort(key=lambda file: os.stat(file).st_ctime)
 
-        for file in files_to_render:
-            relpath = path.relpath(file, working_directory)
-            content = None
-            with open(file, "r", encoding="utf-8-sig") as f:
-                content = f.read().strip()
-            with pdf.unbreakable() as pdf: # type: ignore
-                self.print_file(pdf, content, self.file_label.format(filename=relpath))
+        self.print_files(pdf, files_to_render, working_directory)
 
         # Render console output
         console_output = stdout.strip()
@@ -104,6 +120,14 @@ class ProjectTestsSection(SectionGenerator):
                 pdf.image(console_image, w=pdf.epw)
                 pdf.add_numbering(self.console_numbering_label)
                 pdf.newline()
+
+    def print_files(self, pdf: PDF, files: list[str], root_dir: str):
+        for file in files:
+            relpath = path.relpath(file, root_dir)
+            content = None
+            with open(file, "r", encoding="utf-8-sig") as f:
+                content = f.read().strip()
+            self.print_file(pdf, content, relpath)
 
     def print_file(self, pdf: PDF, text: str, filename: str):
         pdf.set_font("times-new-roman", 12)
