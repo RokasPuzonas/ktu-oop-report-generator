@@ -1,8 +1,8 @@
 beautifulsoup4==4.10.0
+class-diagram-generator==1.0.1
 click==8.0.3
 dacite==1.6.0
 fpdf2==2.4.6
-lark==1.1.1
 lxml==4.8.0
 Pillow==9.0.0
 Pygments==2.10.0

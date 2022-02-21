@@ -17,8 +17,7 @@
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
 from ..utils import list_files
-from ..csharp_analyser import extract_diagrams
-from ..class_diagram import merge_same_diagrams, render_diagrams
+from classdiagramgen import extract_diagrams, merge_same_diagrams, render_diagrams
 from ..report import Report
 from . import SectionGenerator
 from ..pdf import PDF

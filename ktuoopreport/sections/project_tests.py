@@ -17,6 +17,9 @@
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
 from glob import glob
+from typing import Optional, Union
+
+from PIL.Image import Image
 from ..console_renderer import render_console
 from . import SectionGenerator
 from ..pdf import PDF
@@ -31,6 +34,8 @@ class ProjectTestsSection(SectionGenerator):
     file_label: str = "{filename}:"
     console_label: str = "Konsolės išvestis:"
     console_numbering_label: str = "{index} pav. Konsolės išvestis"
+
+    image_numbering_label: str = "{index} pav. Ekrano vaizdas"
 
     builld_arguments: list[str] = ["--no-dependencies", "--nologo", "/nowarn:netsdk1138"]
 
@@ -113,21 +118,45 @@ class ProjectTestsSection(SectionGenerator):
         if len(console_output) > 0:
             console_image = render_console(console_output, self.console_font_file, self.console_font_size)
 
-            pdf.set_font("times-new-roman", 12)
-            with pdf.unbreakable() as pdf: # type: ignore
-                pdf.print(self.console_label)
+            self.display_numbered_image(pdf, console_image, self.console_numbering_label, self.console_label, full_width = True)
+
+    def display_numbered_image(
+            self,
+            pdf: PDF,
+            image: str|Image,
+            numbering_label: str,
+            label: Optional[str] = None,
+            full_width: bool = False,
+        ):
+        pdf.set_font("times-new-roman", 12)
+        with pdf.unbreakable() as pdf: # type: ignore
+            if label:
+                pdf.print(label)
                 pdf.newline()
-                pdf.image(console_image, w=pdf.epw)
-                pdf.add_numbering(self.console_numbering_label)
-                pdf.newline()
+            if full_width:
+                pdf.image(image, w=pdf.epw)
+            else:
+                pdf.image(image)
+            pdf.add_numbering(numbering_label)
+            pdf.newline()
 
     def print_files(self, pdf: PDF, files: list[str], root_dir: str):
+        image_files = []
+
         for file in files:
+            lower_file = file.lower()
+            if lower_file.endswith(".png") or lower_file.endswith(".jpg") or lower_file.endswith(".jpeg"):
+                image_files.append(file)
+                continue
+
             relpath = path.relpath(file, root_dir)
             content = None
             with open(file, "r", encoding="utf-8-sig") as f:
                 content = f.read().strip()
             self.print_file(pdf, content, relpath)
+
+        for file in image_files:
+            self.display_numbered_image(pdf, file, self.image_numbering_label)
 
     def print_file(self, pdf: PDF, text: str, filename: str):
         pdf.set_font("times-new-roman", 12)
