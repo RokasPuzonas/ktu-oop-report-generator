@@ -25,7 +25,7 @@ runs:
       with:
         python-version: 3.x
     - name: Clone report generator
-      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v2.0.2
+      run: git clone https://github.com/RokasPuzonas/ktu-oop-report-generator -b v2.0.3
       shell: "bash"
     - name: Generate report
       run: |
