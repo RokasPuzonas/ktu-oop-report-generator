@@ -394,7 +394,7 @@ class ReportGenerator2(ReportGenerator):
             SectionEntry(MarkdownSection("guide"), "Programos vartotojo vadovas"),
             SectionEntry(ProjectSourceCodeSection(
                 "project", sort_files=ReportGenerator2.sort_source_code_files,
-                included_files=["*.cs", "*.aspx"],
+                included_files=["*.cs", "*.aspx", "*.css"],
                 excluded_files=["*.designer.cs", "obj/**", "bin/**", "Properties/**"],
             ), "Programos tekstas"),
             SectionEntry(ProjectTestsSection("project"), "Pradiniai duomenys ir rezultatai"),
@@ -404,21 +404,26 @@ class ReportGenerator2(ReportGenerator):
     @staticmethod
     def sort_source_code_files(files: list[str]) -> list[str]:
         regular_files = []
+        other_files = []
         aspx_files = []
 
         for filename in files:
             if ".aspx" in filename:
                 aspx_files.append(filename)
-            else:
+            elif filename.endswith(".cs"):
                 regular_files.append(filename)
+            else:
+                other_files.append(filename)
 
         regular_files.sort(key=ReportGenerator2.source_code_sort_key)
         aspx_files.sort()
+        other_files.sort()
 
         new_files = []
 
         new_files.extend(regular_files)
         new_files.extend(aspx_files)
+        new_files.extend(other_files)
 
         return new_files
 

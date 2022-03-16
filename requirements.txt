@@ -1,10 +1,10 @@
 beautifulsoup4==4.10.0
-class-diagram-generator==1.0.2
+class-diagram-generator==2.0.2
 click==8.0.3
 dacite==1.6.0
 fpdf2==2.4.6
 lxml==4.8.0
-Pillow==9.0.0
+Pillow==9.0.1
 Pygments==2.10.0
 soupsieve==2.3.1
 toml==0.10.2

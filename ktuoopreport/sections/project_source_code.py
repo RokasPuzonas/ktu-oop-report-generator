@@ -55,7 +55,7 @@ class ProjectSourceCodeSection(SectionGenerator):
         for filename in project_files:
             text = None
             with open(filename, "r", encoding="utf-8-sig") as f:
-                text = f.read().strip()
+                text = f.read().strip().replace("\t", "    ")
 
             relpath = path.relpath(filename, project_path)
             self.print_colored_file(pdf, relpath, text)

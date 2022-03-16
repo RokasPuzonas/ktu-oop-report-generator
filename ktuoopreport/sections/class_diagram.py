@@ -17,7 +17,7 @@
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
 from ..utils import list_files
-from classdiagramgen import extract_diagrams, merge_same_diagrams, render_diagrams
+from classdiagramgen import extract_namespaces, merge_similar_namespaces, render_namespaces
 from ..report import Report
 from . import SectionGenerator
 from ..pdf import PDF
@@ -42,13 +42,13 @@ class ClassDiagramSection(SectionGenerator):
     def generate(self, pdf: PDF, section: dict, report: Report):
         diagrams = []
         for filename in list_files(section["project"], self.included_files, self.excluded_files):
-            for diagram in extract_diagrams(filename):
+            for diagram in extract_namespaces(filename):
                 diagrams.append(diagram)
 
         if self.merge_same_diagrams:
-            merge_same_diagrams(diagrams)
+            merge_similar_namespaces(diagrams)
 
-        rendered_diagrams = render_diagrams(diagrams, self.diagram_font_file, self.diagram_font_size)
+        rendered_diagrams = render_namespaces(diagrams, self.diagram_font_file, self.diagram_font_size)
         with pdf.unbreakable() as pdf: # type: ignore
             pdf.newline()
             pdf.image(rendered_diagrams, w=pdf.epw)
