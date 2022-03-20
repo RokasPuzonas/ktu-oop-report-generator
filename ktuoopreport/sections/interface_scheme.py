@@ -41,4 +41,4 @@ class InterfaceSchemeSection(SectionGenerator):
 
     def assert_fields(self, section: dict, _: Report):
         assert type(section.get(self.field)) == str, f"Expected field '{self.field}' in section to be str"
-        assert exists(section[self.field]), f"Image '{self.field}' not found"
+        assert exists(section[self.field]), f"Image '{section[self.field]}' not found"
