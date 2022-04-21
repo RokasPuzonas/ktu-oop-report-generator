@@ -12,7 +12,10 @@ from dacite.config import Config
 from ktuoopreport import Report, Gender, Person, ReportGenerator1, ReportGenerator2
 from ktuoopreport.report_generator import ReportGenerator
 
-# TODO: Add support for loading program descriptions from individual README files
+# TODO: This whole library needs a big refactor:
+# 1. Generate an intemediatary file before pdfs, so the final report could be
+#    edited. (maybe latex?)
+# 2. Remove the relative path BS when using relative filenames
 
 def read_report_toml(filename: str) -> Report:
     report = None
@@ -35,8 +38,12 @@ def read_report_toml(filename: str) -> Report:
     for section in report.sections:
         if "project" in section:
             section["project"] = path.join(base_directory, section["project"])
+        if "tests_project" in section:
+            section["tests_project"] = path.join(base_directory, section["tests_project"])
         if "interface_scheme" in section:
             section["interface_scheme"] = path.join(base_directory, section["interface_scheme"])
+        if "tests_screenshots" in section:
+            section["tests_screenshots"] = list(path.join(base_directory, p) for p in section["tests_screenshots"])
 
     return report
 

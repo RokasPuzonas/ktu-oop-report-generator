@@ -55,10 +55,16 @@ class ProjectTestsSection(SectionGenerator):
         if not (tests_folder and ProjectTestsSection.has_subfolders(tests_folder)):
             return
 
+        tests_screenshots = section.get("tests_screenshots")
+        if tests_screenshots:
+            for file in tests_screenshots:
+                self.display_numbered_image(pdf, file, self.image_numbering_label)
+
         if dotnet.is_web_project(project_path):
             self.generate_static(pdf, tests_folder)
         else:
             self.generate_dynamic(pdf, project_path, tests_folder)
+
 
     def generate_dynamic(self, pdf: PDF, project_path: str, tests_folder: str):
         # Build project

@@ -19,12 +19,14 @@
 
 from dataclasses import dataclass
 from math import ceil
+from PIL import Image as ImageUtils
+from PIL.Image import Image
 from fpdf.fpdf import TitleStyle
 from fpdf.outline import OutlineSection
 import os.path as path
 import sys
-from itertools import groupby
 from datetime import date
+from ktuoopreport.dotnet import pushd
 from ktuoopreport.sections.class_diagram import ClassDiagramSection
 from ktuoopreport.sections.interface_scheme import InterfaceSchemeSection
 

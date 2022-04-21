@@ -16,6 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with KTU OOP Report Generator. If not, see <https://www.gnu.org/licenses/>.
 """
+from typing import Callable
 from ..utils import list_files
 from ..report import Report
 from . import SectionGenerator
@@ -32,7 +33,7 @@ class ProjectSourceCodeSection(SectionGenerator):
             field: str,
             included_files: list[str],
             excluded_files: list[str]=[],
-            sort_files=None
+            sort_files: Callable[[list[str]], list[str]]|None = None
         ) -> None:
         super().__init__()
         self.field = field
@@ -52,12 +53,21 @@ class ProjectSourceCodeSection(SectionGenerator):
         if self.sort_files:
             project_files = self.sort_files(project_files)
 
-        for filename in project_files:
+        self.write_files(pdf, project_files, project_path)
+
+        tests_project_path = section.get("tests_"+self.field)
+        if tests_project_path != None:
+            tests_project_files = list(list_files(tests_project_path, self.included_files, self.excluded_files))
+            self.write_files(pdf, tests_project_files, tests_project_path)
+
+
+    def write_files(self, pdf: PDF, filenames: list[str], relative_to: str):
+        for filename in filenames:
             text = None
             with open(filename, "r", encoding="utf-8-sig") as f:
                 text = f.read().strip().replace("\t", "    ")
 
-            relpath = path.relpath(filename, project_path)
+            relpath = path.relpath(filename, relative_to)
             self.print_colored_file(pdf, relpath, text)
 
     def has_required_fields(self, section: dict, _: Report) -> bool:
